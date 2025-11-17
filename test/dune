@@ -1,0 +1,5 @@
+(test
+ (name parser_tests)
+ (modules parser_tests)
+ (libraries ounit2 logic_prover))
+

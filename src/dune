@@ -1,3 +1,4 @@
 (executable
  (name main)
- (modules ast parser main))
+ (modules main)
+ (libraries logic_prover))

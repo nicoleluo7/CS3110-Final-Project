@@ -1,0 +1,5 @@
+(library
+ (name logic_prover)
+ (wrapped false)
+ (modules ast rule sequent parser))
+
