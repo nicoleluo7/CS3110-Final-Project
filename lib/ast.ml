@@ -8,8 +8,8 @@ type prop =
 
 (* Convert a prop back into a readable string. Used for printing formulas in the
    REPL and later in the proof interface. *)
-let rec to_string = function
-  | Var v -> v
-  | And (p, q) -> "(" ^ to_string p ^ " & " ^ to_string q ^ ")"
-  | Imp (p, q) -> "(" ^ to_string p ^ " -> " ^ to_string q ^ ")"
-  | Not p -> "!" ^ to_string p
+let rec prop_to_string = function
+  | Var p -> p
+  | And (p1, p2) -> "(" ^ prop_to_string p1 ^ " & " ^ prop_to_string p2 ^ ")"
+  | Imp (p1, p2) -> "(" ^ prop_to_string p1 ^ " -> " ^ prop_to_string p2 ^ ")"
+  | Not p -> "!" ^ prop_to_string p
