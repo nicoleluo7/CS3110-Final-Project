@@ -1,0 +1,2 @@
+premise A
+premise A -> B

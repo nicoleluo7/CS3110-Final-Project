@@ -77,3 +77,28 @@ let print_result t =
     | None -> "None"
     | Some p -> prop_to_string p);
   print_endline (if judge_goal t then "Goal reached!" else "Goal not reached")
+
+let explain_derivation st new_prop =
+  (* new_prop must have come from MP: A and A -> B *)
+  let rec find = function
+    | [] -> None
+    | (a, imp) :: rest -> (
+        match imp with
+        | Imp (prem, concl) when concl = new_prop && prem = a -> Some (a, imp)
+        | _ -> find rest)
+  in
+
+  (* Build list of candidate (A, A->B) pairs *)
+  let candidates =
+    List.concat
+      (List.map
+         (fun a ->
+           List.filter_map
+             (fun p ->
+               match p with
+               | Imp (prem, concl) when prem = a -> Some (a, p)
+               | _ -> None)
+             (st.premises @ st.derived))
+         (st.premises @ st.derived))
+  in
+  find candidates
