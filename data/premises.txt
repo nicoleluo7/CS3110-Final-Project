@@ -1,2 +1,4 @@
 premise A
 premise A -> B
+
+goal C
