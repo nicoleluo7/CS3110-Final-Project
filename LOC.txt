@@ -1,0 +1,23 @@
+Lines of Code Measurement
+
+Total LOC: 683 lines
+
+- Measured using cloc v2.06 with the command: cloc --by-file --include-lang=OCaml .
+- Build artifacts were cleaned using `dune clean` before measurement to exclude generated code in _build/
+- Only OCaml source files (.ml and .mli) were included in the count
+- LOC count represents physical lines of code (non-blank, non-comment lines)
+
+File Breakdown:
+- test/parser_tests.ml: 270 lines
+- src/main.ml: 218 lines
+- lib/parser.ml: 79 lines
+- lib/sequent.ml: 73 lines
+- lib/sequent.mli: 14 lines
+- lib/ast.ml: 10 lines
+- lib/rule.ml: 8 lines
+- lib/ast.mli: 6 lines
+- lib/parser.mli: 3 lines
+- lib/rule.mli: 2 lines
+
+All source code files in lib/, src/, and test/ directories are included in this count.
+
