@@ -1,5 +1,6 @@
 (test
  (name parser_tests)
  (modules parser_tests)
- (libraries ounit2 logic_prover))
+ (libraries ounit2 logic_prover)
+ (instrumentation (backend bisect_ppx)))
 

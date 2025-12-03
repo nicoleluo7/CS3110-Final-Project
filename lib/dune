@@ -1,5 +1,6 @@
 (library
  (name logic_prover)
  (wrapped false)
- (modules ast rule sequent parser))
+ (modules ast rule sequent parser)
+ (instrumentation (backend bisect_ppx)))
 
