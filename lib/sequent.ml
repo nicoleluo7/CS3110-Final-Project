@@ -14,8 +14,26 @@ type t = {
     none. *)
 let empty = { premises = []; derived = []; goal = None }
 
-(** add_premise adds a prop to the original list. *)
-let add_premise t p = { t with premises = p :: t.premises }
+(* conflicts is a helper function that determines if a premise p conflicts with another premise q *)
+let conflicts p q =
+  match (p, q) with
+  | Not p1, q1 when p1 = q1 -> true
+  | p1, Not q1 when p1 = q1 -> true
+  | _ -> false
+
+
+(** add_premise adds a prop unless it conflicts with an existing premise or
+    derived prop. If it conflicts, it prints a message and rejects it. *)
+let add_premise t p =
+  let all_known = t.premises @ t.derived in
+  match List.find_opt (conflicts p) all_known with
+  | Some q ->
+      print_endline
+        ("Rejected premise: " ^ prop_to_string p ^ " conflicts with existing: " ^ prop_to_string q ^ ". Sequent not changed.\n");
+      t
+  | None ->
+    print_endline ("Added premise: " ^ prop_to_string p ^ "\n");
+      { t with premises = p :: t.premises }
 
 (** add_derived adds a prop to the original list. *)
 let add_derived t p =

@@ -220,8 +220,8 @@ let rec loop st =
       | Ok Derive ->
           let st' = apply_and_show st in
           loop st'
+      (* reject/success message handled in backend *)
       | Ok (AddPremise p) ->
-          print_endline ("Added premise: " ^ prop_to_string p);
           let st' = add_premise st p |> apply_and_show in
           loop st'
       | Ok (SetGoal p) ->

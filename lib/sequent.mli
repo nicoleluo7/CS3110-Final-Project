@@ -15,7 +15,7 @@ val empty : t
 
 val add_premise : t -> prop -> t
 (** [add_premise st p] returns a new proof state like [st] but with [p] added to
-    the list of premises. *)
+    the list of premises. also prints whether addition was successful or rejected.*)
 
 val add_derived : t -> prop -> t
 (** [add_derived st p] returns a new proof state like [st] but with [p] added to
