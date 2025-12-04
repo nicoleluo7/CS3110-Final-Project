@@ -47,9 +47,6 @@ val hypothetical_syllogism : prop -> prop -> prop option
 val contraposition : prop -> prop option
 (** [contraposition p] derives !B -> !A from A -> B. *)
 
-val double_negation_introduction : prop -> prop option
-(** [double_negation_introduction p] derives !!A from A. *)
-
 val exportation : prop -> prop option
 (** [exportation p] derives A -> (B -> C) from (A & B) -> C. *)
 
