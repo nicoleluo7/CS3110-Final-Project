@@ -13,6 +13,14 @@ type command =
   | Quit
   | Shortcuts
   | Load of string
+  | Export of string
+  | Stats
+  | ApplyAll
+  | FindDerivations of prop
+  | ClearDerived
+  | ClearGoal
+  | RemovePremise of prop
+  | Rules
 
 (* -------------------------------------------------------------------------- *)
 let print_state st =
@@ -100,6 +108,24 @@ let parse_command line =
     | "help" | "h" | "?" -> Ok Help
     | "quit" | "q" -> Ok Quit
     | "shortcuts" -> Ok Shortcuts
+    | "rules" -> Ok Rules
+    | "export" -> (
+        if arg = "" then Error "Usage: export <filename>"
+        else Ok (Export arg))
+    | "stats" | "statistics" -> Ok Stats
+    | "applyall" | "aa" -> Ok ApplyAll
+    | "find" | "findderivations" -> (
+        if arg = "" then Error "Usage: find <formula>"
+        else
+          try Ok (FindDerivations (parse_prop arg))
+          with Parse_error msg -> Error ("Parse error: " ^ msg))
+    | "clearderived" | "cd" -> Ok ClearDerived
+    | "cleargoal" | "cg" -> Ok ClearGoal
+    | "remove" | "rm" -> (
+        if arg = "" then Error "Usage: remove <formula>"
+        else
+          try Ok (RemovePremise (parse_prop arg))
+          with Parse_error msg -> Error ("Parse error: " ^ msg))
     | unknown -> Error ("Unknown command: " ^ unknown)
 
 (* -------------------------------------------------------------------------- *)
@@ -107,6 +133,20 @@ let print_banner () =
   print_endline "===========================================";
   print_endline "       Propositional Logic REPL v1.0";
   print_endline "===========================================";
+  print_endline "";
+  print_endline "About:";
+  print_endline "  An interactive proof assistant for propositional logic.";
+  print_endline "  Build proofs by adding premises, applying inference rules,";
+  print_endline "  and tracking goals. Supports formulas with variables (A-Z),";
+  print_endline "  conjunctions (&), disjunctions (|), implications (->),";
+  print_endline "  and negations (!).";
+  print_endline "";
+  print_endline "Quick Start Example:";
+  print_endline "  premise A";
+  print_endline "  premise (A -> B)";
+  print_endline "  goal B";
+  print_endline "  derive";
+  print_endline "  show";
   print_endline ""
 
 let print_shortcuts () =
@@ -115,26 +155,72 @@ let print_shortcuts () =
   print_endline "──────────────────────────────";
   print_endline "  p           premise";
   print_endline "  g           goal";
-  print_endline "  d           derive (Modus Ponens)";
+  print_endline "  d           derive (MP & Conj Intro)";
   print_endline "  ci          conj intro";
   print_endline "  s           show";
+  print_endline "  aa          applyall";
+  print_endline "  cd          clearderived";
+  print_endline "  cg          cleargoal";
   print_endline "  h, ?        help";
   print_endline "  q           quit";
+  print_endline "──────────────────────────────\n"
+
+let print_rules () =
+  print_endline "──────────────────────────────";
+  print_endline " Supported Inference Rules:";
+  print_endline "──────────────────────────────";
+  print_endline "";
+  print_endline " Basic Rules:";
+  print_endline "  • Modus Ponens:          From A and A -> B, derive B";
+  print_endline "  • Modus Tollens:          From !B and A -> B, derive !A";
+  print_endline "  • Conjunction Intro:      From A and B, derive A & B";
+  print_endline "  • Conjunction Elim (L/R): From A & B, derive A (or B)";
+  print_endline "";
+  print_endline " Advanced Rules:";
+  print_endline "  • Disjunction Intro:      From A, derive A | B";
+  print_endline "  • Hypothetical Syllogism: From A -> B and B -> C, derive A -> C";
+  print_endline "  • Contraposition:         From A -> B, derive !B -> !A";
+  print_endline "  • Double Negation Intro:   From A, derive !!A";
+  print_endline "  • Double Negation Elim:    From !!A, derive A";
+  print_endline "  • Exportation:             From (A & B) -> C, derive A -> (B -> C)";
+  print_endline "  • Importation:             From A -> (B -> C), derive (A & B) -> C";
+  print_endline "  • Biconditional Intro:     From A -> B and B -> A, derive (A->B)&(B->A)";
+  print_endline "  • Biconditional Elim:      Extract components from biconditionals";
+  print_endline "  • Negation Introduction:   From A -> B and A -> !B, derive !A";
+  print_endline "";
   print_endline "──────────────────────────────\n"
 
 let print_help () =
   print_endline "──────────────────────────────";
   print_endline " Commands:";
   print_endline "──────────────────────────────";
-  print_endline "  premise <formula>   Add a premise";
-  print_endline "  goal <formula>      Set the goal";
-  print_endline "  derive              Apply Modus Ponens";
-  print_endline "  conj                Apply Conjunction Introduction";
+  print_endline "";
+  print_endline " Proof Construction:";
+  print_endline "  premise <formula>   Add a premise (auto-applies basic rules)";
+  print_endline "  goal <formula>      Set the goal (auto-applies basic rules)";
+  print_endline "  derive              Apply Modus Ponens & Conjunction Intro";
+  print_endline "  conj                Apply Conjunction Introduction only";
+  print_endline "  applyall            Apply ALL inference rules exhaustively";
+  print_endline "";
+  print_endline " State Management:";
   print_endline "  show                Show current state";
-  print_endline "  reset               Clear proof state";
-  print_endline "  load <file>         Load premises/goals from script";
+  print_endline "  reset               Clear entire proof state (all data)";
+  print_endline "  clearderived        Clear only derived formulas (keep premises)";
+  print_endline "  cleargoal           Clear only the goal (keep premises/derived)";
+  print_endline "  remove <formula>    Remove a specific premise";
+  print_endline "";
+  print_endline " Analysis & Discovery:";
+  print_endline "  stats               Show proof statistics (counts & status)";
+  print_endline "  find <formula>      Find possible ways to derive formula";
+  print_endline "";
+  print_endline " File Operations:";
+  print_endline "  load <file>         Load premises/goals from script file";
+  print_endline "  export <file>       Export current state to text file";
+  print_endline "";
+  print_endline " Help & Navigation:";
   print_endline "  help                Show help message";
   print_endline "  shortcuts           Print command shortcuts";
+  print_endline "  rules               List all supported inference rules";
   print_endline "  quit                Exit";
   print_endline "──────────────────────────────\n"
 
@@ -211,7 +297,7 @@ let rec run_script st lines =
         | Ok Quit ->
             print_endline "Quit ignored inside script.";
             run_script st rest
-        | Ok Help | Ok Show | Ok Shortcuts ->
+        | Ok Help | Ok Show | Ok Shortcuts | Ok Rules ->
             (* UI commands ignored in scripts *)
             run_script st rest
         | Ok Reset -> run_script empty rest
@@ -229,6 +315,10 @@ let rec run_script st lines =
             run_script st' rest
         | Ok (Load _) ->
             print_endline "Nested load not supported.";
+            run_script st rest
+        | Ok (Export _) | Ok Stats | Ok ApplyAll | Ok (FindDerivations _)
+        | Ok ClearDerived | Ok ClearGoal | Ok (RemovePremise _) ->
+            (* UI commands ignored in scripts *)
             run_script st rest)
 
 (* -------------------------------------------------------------------------- *)
@@ -260,6 +350,9 @@ let rec loop st =
       | Ok Shortcuts ->
           print_shortcuts ();
           loop st
+      | Ok Rules ->
+          print_rules ();
+          loop st
       | Ok Derive ->
           let st' = apply_and_show st in
           loop st'
@@ -273,6 +366,63 @@ let rec loop st =
       | Ok (SetGoal p) ->
           print_endline ("Set goal: " ^ prop_to_string p);
           let st' = add_goal st p |> apply_and_show in
+          loop st'
+      | Ok (Export filename) ->
+          let content = Sequent.export_state st in
+          let ch = open_out filename in
+          output_string ch content;
+          close_out ch;
+          Printf.printf "State exported to %s\n" filename;
+          loop st
+      | Ok Stats ->
+          let prem_count, deriv_count, goal_set, goal_reached =
+            Sequent.get_statistics st
+          in
+          print_endline "──────────────────────────────";
+          print_endline " Proof Statistics:";
+          print_endline "──────────────────────────────";
+          Printf.printf "  Premises: %d\n" prem_count;
+          Printf.printf "  Derived: %d\n" deriv_count;
+          Printf.printf "  Goal set: %s\n" (if goal_set then "Yes" else "No");
+          Printf.printf "  Goal reached: %s\n"
+            (if goal_reached then "Yes" else "No");
+          print_endline "──────────────────────────────\n";
+          loop st
+      | Ok ApplyAll ->
+          print_endline "Applying all inference rules...";
+          let st' = Sequent.apply_all_rules st in
+          print_state st';
+          loop st'
+      | Ok (FindDerivations p) ->
+          let derivations = Sequent.find_derivations st p in
+          if derivations = [] then
+            Printf.printf "No derivations found for: %s\n" (prop_to_string p)
+          else (
+            Printf.printf "Possible derivations for: %s\n" (prop_to_string p);
+            List.iter
+              (fun (rule_name, p1, p2) ->
+                Printf.printf "  - %s: from %s and %s\n" rule_name
+                  (prop_to_string p1)
+                  (prop_to_string p2))
+              derivations);
+          loop st
+      | Ok ClearDerived ->
+          let st' = Sequent.clear_derived st in
+          print_endline "All derived formulas cleared.";
+          print_state st';
+          loop st'
+      | Ok ClearGoal ->
+          let st' = Sequent.clear_goal st in
+          print_endline "Goal cleared.";
+          print_state st';
+          loop st'
+      | Ok (RemovePremise p) ->
+          let st' = Sequent.remove_premise st p in
+          if st'.premises = st.premises then
+            Printf.printf "Premise not found: %s\n" (prop_to_string p)
+          else
+            Printf.printf "Removed premise: %s\n" (prop_to_string p);
+          print_state st';
           loop st'
       | Ok (Load filename) ->
           if not (Sys.file_exists filename) then (

@@ -26,3 +26,34 @@ val conjunction_introduction : prop -> prop -> prop option
     - Returns [Some (And (p1, p2))], deriving [A & B] from [A] and [B]. *)
 
 val modus_tollens : prop -> prop -> prop option
+(** [modus_tollens p1 p2] applies Modus Tollens: from ¬B and (A -> B), derive ¬A. *)
+
+val conjunction_elimination_left : prop -> prop option
+(** [conjunction_elimination_left p] derives the left component from A & B. *)
+
+val conjunction_elimination_right : prop -> prop option
+(** [conjunction_elimination_right p] derives the right component from A & B. *)
+
+val disjunction_introduction_left : prop -> prop -> prop option
+(** [disjunction_introduction_left a b] derives A | B from A. *)
+
+val disjunction_introduction_right : prop -> prop -> prop option
+(** [disjunction_introduction_right a b] derives A | B from B. *)
+
+val hypothetical_syllogism : prop -> prop -> prop option
+(** [hypothetical_syllogism p1 p2] derives A -> C from A -> B and B -> C. *)
+
+val contraposition : prop -> prop option
+(** [contraposition p] derives !B -> !A from A -> B. *)
+
+val double_negation_introduction : prop -> prop option
+(** [double_negation_introduction p] derives !!A from A. *)
+
+val double_negation_elimination : prop -> prop option
+(** [double_negation_elimination p] derives A from !!A. *)
+
+val exportation : prop -> prop option
+(** [exportation p] derives A -> (B -> C) from (A & B) -> C. *)
+
+val importation : prop -> prop option
+(** [importation p] derives (A & B) -> C from A -> (B -> C). *)

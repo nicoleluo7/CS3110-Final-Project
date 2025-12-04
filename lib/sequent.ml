@@ -1,19 +1,18 @@
 open Ast
 open Rule
 
-let inference_rules = [ modus_ponens; modus_tollens ]
+let inference_rules = [
+  modus_ponens;
+  modus_tollens;
+  hypothetical_syllogism;
+]
 
 type t = {
   premises : prop list;
   derived : prop list;
   goal : prop option;
 }
-(** type t represents a record of premises, what's derived and the goal.
-    premises is a list of prop, derived is a list of prop and goal is an option
-    that is none by default and can be set to some p. *)
 
-(** empty initiates an empty t with premises and derived empty and goal set to
-    none. *)
 let empty = { premises = []; derived = []; goal = None }
 
 (* conflicts is a helper function that determines if a premise p conflicts with
@@ -178,3 +177,207 @@ let explain_derivation st new_prop =
          (st.premises @ st.derived))
   in
   find candidates
+
+(** [apply_conjunction_elimination st] applies conjunction elimination to all
+    conjunctions in premises and derived, deriving their components. *)
+let apply_conjunction_elimination st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc p ->
+        match conjunction_elimination_left p with
+        | Some left ->
+            if not (List.mem left st.premises)
+               && not (List.mem left st.derived)
+               && not (List.mem left acc)
+            then left :: acc
+            else acc
+        | None -> acc)
+      [] known
+  in
+  let new_props2 =
+    List.fold_left
+      (fun acc p ->
+        match conjunction_elimination_right p with
+        | Some right ->
+            if not (List.mem right st.premises)
+               && not (List.mem right st.derived)
+               && not (List.mem right acc)
+               && not (List.mem right new_props)
+            then right :: acc
+            else acc
+        | None -> acc)
+      [] known
+  in
+  List.fold_left add_derived st (new_props @ new_props2)
+
+(** [apply_disjunction_introduction st] applies disjunction introduction to all
+    formulas, creating disjunctions with other formulas. *)
+let apply_disjunction_introduction st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc p1 ->
+        List.fold_left
+          (fun acc2 p2 ->
+            if p1 = p2 then acc2
+            else
+              match disjunction_introduction_left p1 p2 with
+              | Some p
+                when (not (List.mem p st.premises))
+                     && (not (List.mem p st.derived))
+                     && not (List.mem p acc)
+                     && not (List.mem p acc2) -> p :: acc2
+              | _ -> acc2)
+          acc known)
+      [] known
+  in
+  List.fold_left add_derived st new_props
+
+(** [apply_hypothetical_syllogism st] applies hypothetical syllogism to derive
+    new implications from chains of implications. *)
+let rec apply_hypothetical_syllogism st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc p1 ->
+        List.fold_left
+          (fun acc2 p2 ->
+            match hypothetical_syllogism p1 p2 with
+            | Some p
+              when (not (List.mem p st.premises))
+                   && (not (List.mem p st.derived))
+                   && not (List.mem p acc)
+                   && not (List.mem p acc2) -> p :: acc2
+            | _ -> acc2)
+          acc known)
+      [] known
+  in
+  match new_props with
+  | [] -> st
+  | _ ->
+      let new_st = List.fold_left add_derived st new_props in
+      apply_hypothetical_syllogism new_st
+
+(** [apply_contraposition st] applies contraposition to all implications. *)
+let apply_contraposition st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc p ->
+        match contraposition p with
+        | Some p'
+          when (not (List.mem p' st.premises))
+               && (not (List.mem p' st.derived))
+               && not (List.mem p' acc) -> p' :: acc
+        | _ -> acc)
+      [] known
+  in
+  List.fold_left add_derived st new_props
+
+(** [get_all_formulas st] returns all formulas (premises and derived) in the state. *)
+let get_all_formulas st = st.premises @ st.derived
+
+(** [count_formulas st] returns the total number of formulas in the state. *)
+let count_formulas st =
+  List.length st.premises + List.length st.derived
+
+(** [has_formula st p] returns true if [p] appears in premises or derived. *)
+let has_formula st p =
+  List.mem p st.premises || List.mem p st.derived
+
+(** [remove_premise st p] removes [p] from premises if it exists. *)
+let remove_premise st p =
+  { st with premises = List.filter (( <> ) p) st.premises }
+
+(** [clear_derived st] clears all derived formulas. *)
+let clear_derived st = { st with derived = [] }
+
+(** [clear_goal st] clears the goal. *)
+let clear_goal st = { st with goal = None }
+
+(** [get_premises st] returns the list of premises. *)
+let get_premises st = st.premises
+
+(** [get_derived st] returns the list of derived formulas. *)
+let get_derived st = st.derived
+
+(** [get_goal st] returns the goal if it exists. *)
+let get_goal st = st.goal
+
+(** [is_empty st] returns true if there are no premises, derived formulas, or goal. *)
+let is_empty st =
+  st.premises = [] && st.derived = [] && st.goal = None
+
+(** [get_statistics st] returns a summary of the proof state. *)
+let get_statistics st =
+  let premise_count = List.length st.premises in
+  let derived_count = List.length st.derived in
+  let goal_set = match st.goal with Some _ -> true | None -> false in
+  let goal_reached = judge_goal st in
+  (premise_count, derived_count, goal_set, goal_reached)
+
+(** [apply_all_rules st] applies all available inference rules exhaustively. *)
+let rec apply_all_rules st =
+  let st1 = apply_modus_ponens st in
+  let st2 = apply_conjunction_introduction st1 in
+  let st3 = apply_conjunction_elimination st2 in
+  let st4 = apply_hypothetical_syllogism st3 in
+  let st5 = apply_contraposition st4 in
+  if count_formulas st5 = count_formulas st then st5
+  else apply_all_rules st5
+
+(** [find_derivations st p] attempts to find how [p] could be derived from the
+    current state using various rules. Returns a list of possible explanations. *)
+let find_derivations st p =
+  let known = st.premises @ st.derived in
+  let explanations = ref [] in
+  (* Check Modus Ponens *)
+  List.iter
+    (fun a ->
+      List.iter
+        (fun imp ->
+          match imp with
+          | Imp (prem, concl) when prem = a && concl = p ->
+              explanations := ("Modus Ponens", a, imp) :: !explanations
+          | _ -> ())
+        known)
+    known;
+  (* Check Modus Tollens *)
+  List.iter
+    (fun not_b ->
+      List.iter
+        (fun imp ->
+          match (not_b, imp) with
+          | Not b1, Imp (a, b2) when b1 = b2 && p = Not a ->
+              explanations := ("Modus Tollens", not_b, imp) :: !explanations
+          | _ -> ())
+        known)
+    known;
+  (* Check Conjunction Introduction *)
+  List.iter
+    (fun p1 ->
+      List.iter
+        (fun p2 ->
+          if p = And (p1, p2) || p = And (p2, p1) then
+            explanations := ("Conjunction Introduction", p1, p2) :: !explanations)
+        known)
+    known;
+  !explanations
+
+(** [export_state st] returns a string representation of the state suitable for
+    saving to a file. *)
+let export_state st =
+  let lines = ref [] in
+  lines := "Premises:" :: !lines;
+  List.iter (fun p -> lines := ("  " ^ prop_to_string p) :: !lines) st.premises;
+  lines := "Derived:" :: !lines;
+  List.iter (fun p -> lines := ("  " ^ prop_to_string p) :: !lines) st.derived;
+  lines :=
+    ( "Goal: "
+    ^ match st.goal with None -> "None" | Some g -> prop_to_string g )
+    :: !lines;
+  lines :=
+    ( "Goal Reached: " ^ if judge_goal st then "Yes" else "No" )
+    :: !lines;
+  String.concat "\n" (List.rev !lines)

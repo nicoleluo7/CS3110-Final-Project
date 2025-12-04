@@ -430,6 +430,235 @@ let simplify_tests =
            assert_equal ~printer:prop_to_string expected (simplify input) );
        ]
 
+(* ========== AST Utility Tests ========== *)
+let ast_utility_tests =
+  "ast_utility"
+  >::: [
+         ( "get_variables simple" >:: fun _ ->
+           let vars = get_variables (Var "A") in
+           assert_equal ~printer:(fun xs -> String.concat "," xs) [ "A" ] vars );
+         ( "get_variables complex" >:: fun _ ->
+           let vars = get_variables (And (Var "A", Imp (Var "B", Var "C"))) in
+           let sorted = List.sort compare vars in
+           assert_equal ~printer:(fun xs -> String.concat "," xs)
+             [ "A"; "B"; "C" ] sorted );
+         ( "depth atomic" >:: fun _ -> assert_equal 0 (depth (Var "A")) );
+         ( "depth simple" >:: fun _ ->
+           assert_equal 1 (depth (And (Var "A", Var "B"))) );
+         ( "depth nested" >:: fun _ ->
+           assert_equal 2
+             (depth (And (Var "A", Imp (Var "B", Var "C")))) );
+         ( "size atomic" >:: fun _ -> assert_equal 1 (size (Var "A")) );
+         ( "size binary" >:: fun _ ->
+           assert_equal 3 (size (And (Var "A", Var "B"))) );
+         ( "is_atomic true" >:: fun _ -> assert_bool "Should be atomic" (is_atomic (Var "A")) );
+         ( "is_atomic false" >:: fun _ ->
+           assert_bool "Should not be atomic" (not (is_atomic (And (Var "A", Var "B")))) );
+         ( "is_negation true" >:: fun _ ->
+           assert_bool "Should be negation" (is_negation (Not (Var "A"))) );
+         ( "is_negation false" >:: fun _ ->
+           assert_bool "Should not be negation" (not (is_negation (Var "A"))) );
+         ( "is_conjunction true" >:: fun _ ->
+           assert_bool "Should be conjunction"
+             (is_conjunction (And (Var "A", Var "B"))) );
+         ( "is_conjunction false" >:: fun _ ->
+           assert_bool "Should not be conjunction" (not (is_conjunction (Var "A"))) );
+         ( "is_disjunction true" >:: fun _ ->
+           assert_bool "Should be disjunction" (is_disjunction (Or (Var "A", Var "B"))) );
+         ( "is_implication true" >:: fun _ ->
+           assert_bool "Should be implication"
+             (is_implication (Imp (Var "A", Var "B"))) );
+         ( "count_operators simple" >:: fun _ ->
+           let a, o, i, n = count_operators (And (Var "A", Var "B")) in
+           assert_equal 1 a;
+           assert_equal 0 o;
+           assert_equal 0 i;
+           assert_equal 0 n );
+         ( "count_operators complex" >:: fun _ ->
+           let a, o, i, n =
+             count_operators (Imp (And (Var "A", Var "B"), Not (Var "C")))
+           in
+           assert_equal 1 a;
+           assert_equal 0 o;
+           assert_equal 1 i;
+           assert_equal 1 n );
+         ( "subformulas atomic" >:: fun _ ->
+           let subs = subformulas (Var "A") in
+           assert_equal 1 (List.length subs);
+           assert_bool "Should contain A" (List.mem (Var "A") subs) );
+         ( "subformulas complex" >:: fun _ ->
+           let p = And (Var "A", Var "B") in
+           let subs = subformulas p in
+           assert_bool "Should contain itself" (List.mem p subs);
+           assert_bool "Should contain A" (List.mem (Var "A") subs);
+           assert_bool "Should contain B" (List.mem (Var "B") subs) );
+         ( "contains true" >:: fun _ ->
+           assert_bool "Should contain subformula"
+             (contains (And (Var "A", Var "B")) (Var "A")) );
+         ( "contains false" >:: fun _ ->
+           assert_bool "Should not contain"
+             (not (contains (Var "A") (Var "B"))) );
+         ( "get_left_operand" >:: fun _ ->
+           match get_left_operand (And (Var "A", Var "B")) with
+           | Some p -> assert_equal (Var "A") p
+           | None -> assert_failure "Should have left operand" );
+         ( "get_right_operand" >:: fun _ ->
+           match get_right_operand (Imp (Var "A", Var "B")) with
+           | Some p -> assert_equal (Var "B") p
+           | None -> assert_failure "Should have right operand" );
+         ( "get_negated_formula" >:: fun _ ->
+           match get_negated_formula (Not (Var "A")) with
+           | Some p -> assert_equal (Var "A") p
+           | None -> assert_failure "Should have negated formula" );
+         ( "get_antecedent" >:: fun _ ->
+           match get_antecedent (Imp (Var "A", Var "B")) with
+           | Some p -> assert_equal (Var "A") p
+           | None -> assert_failure "Should have antecedent" );
+         ( "get_consequent" >:: fun _ ->
+           match get_consequent (Imp (Var "A", Var "B")) with
+           | Some p -> assert_equal (Var "B") p
+           | None -> assert_failure "Should have consequent" );
+       ]
+
+(* ========== Additional Rule Tests ========== *)
+let additional_rule_tests =
+  "additional_rules"
+  >::: [
+         ( "conjunction_elimination_left" >:: fun _ ->
+           match conjunction_elimination_left (And (Var "A", Var "B")) with
+           | Some p -> assert_equal (Var "A") p
+           | None -> assert_failure "Should eliminate left" );
+         ( "conjunction_elimination_right" >:: fun _ ->
+           match conjunction_elimination_right (And (Var "A", Var "B")) with
+           | Some p -> assert_equal (Var "B") p
+           | None -> assert_failure "Should eliminate right" );
+         ( "disjunction_introduction_left" >:: fun _ ->
+           match disjunction_introduction_left (Var "A") (Var "B") with
+           | Some p -> assert_equal (Or (Var "A", Var "B")) p
+           | None -> assert_failure "Should introduce disjunction" );
+         ( "hypothetical_syllogism" >:: fun _ ->
+           match
+             hypothetical_syllogism (Imp (Var "A", Var "B"))
+               (Imp (Var "B", Var "C"))
+           with
+           | Some p -> assert_equal (Imp (Var "A", Var "C")) p
+           | None -> assert_failure "Should apply hypothetical syllogism" );
+         ( "contraposition" >:: fun _ ->
+           match contraposition (Imp (Var "A", Var "B")) with
+           | Some p -> assert_equal (Imp (Not (Var "B"), Not (Var "A"))) p
+           | None -> assert_failure "Should apply contraposition" );
+         ( "double_negation_introduction" >:: fun _ ->
+           match double_negation_introduction (Var "A") with
+           | Some p -> assert_equal (Not (Not (Var "A"))) p
+           | None -> assert_failure "Should introduce double negation" );
+         ( "double_negation_elimination" >:: fun _ ->
+           match double_negation_elimination (Not (Not (Var "A"))) with
+           | Some p -> assert_equal (Var "A") p
+           | None -> assert_failure "Should eliminate double negation" );
+         ( "exportation" >:: fun _ ->
+           match exportation (Imp (And (Var "A", Var "B"), Var "C")) with
+           | Some p ->
+               assert_equal (Imp (Var "A", Imp (Var "B", Var "C"))) p
+           | None -> assert_failure "Should apply exportation" );
+         ( "importation" >:: fun _ ->
+           match importation (Imp (Var "A", Imp (Var "B", Var "C"))) with
+           | Some p -> assert_equal (Imp (And (Var "A", Var "B"), Var "C")) p
+           | None -> assert_failure "Should apply importation" );
+       ]
+
+(* ========== Additional Sequent Tests ========== *)
+let additional_sequent_tests =
+  "additional_sequent"
+  >::: [
+         ( "apply_conjunction_elimination" >:: fun _ ->
+           let st =
+             empty |> fun s -> add_premise s (And (Var "A", Var "B"))
+           in
+           let result = apply_conjunction_elimination st in
+           assert_bool "Should derive A" (List.mem (Var "A") result.derived);
+           assert_bool "Should derive B" (List.mem (Var "B") result.derived) );
+         ( "apply_hypothetical_syllogism" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "C"))
+           in
+           let result = apply_hypothetical_syllogism st in
+           assert_bool "Should derive A -> C"
+             (List.mem (Imp (Var "A", Var "C")) result.derived) );
+         ( "apply_contraposition" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Imp (Var "A", Var "B")) in
+           let result = apply_contraposition st in
+           assert_bool "Should derive !B -> !A"
+             (List.mem (Imp (Not (Var "B"), Not (Var "A"))) result.derived) );
+         ( "get_all_formulas" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s -> add_premise s (Var "B")
+           in
+           let all = get_all_formulas st in
+           assert_bool "Should contain A" (List.mem (Var "A") all);
+           assert_bool "Should contain B" (List.mem (Var "B") all) );
+         ( "count_formulas" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s -> add_premise s (Var "B")
+           in
+           assert_equal 2 (count_formulas st) );
+         ( "has_formula true" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Var "A") in
+           assert_bool "Should have A" (has_formula st (Var "A")) );
+         ( "has_formula false" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Var "A") in
+           assert_bool "Should not have B" (not (has_formula st (Var "B"))) );
+         ( "remove_premise" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Var "A") in
+           let st' = remove_premise st (Var "A") in
+           assert_equal [] st'.premises );
+         ( "clear_derived" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             apply_modus_ponens s
+           in
+           let st' = clear_derived st in
+           assert_equal [] st'.derived );
+         ( "clear_goal" >:: fun _ ->
+           let st = empty |> fun s -> add_goal s (Var "A") in
+           let st' = clear_goal st in
+           assert_equal None st'.goal );
+         ( "is_empty true" >:: fun _ ->
+           assert_bool "Should be empty" (is_empty empty) );
+         ( "is_empty false" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Var "A") in
+           assert_bool "Should not be empty" (not (is_empty st)) );
+         ( "get_statistics" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s -> add_goal s (Var "A")
+           in
+           let prem_count, deriv_count, goal_set, goal_reached =
+             get_statistics st
+           in
+           assert_equal 1 prem_count;
+           assert_equal 0 deriv_count;
+           assert_bool "Goal should be set" goal_set;
+           assert_bool "Goal should be reached" goal_reached );
+         ( "find_derivations found" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Imp (Var "A", Var "B"))
+           in
+           let derivs = find_derivations st (Var "B") in
+           assert_bool "Should find derivations" (derivs <> []) );
+         ( "find_derivations not found" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Var "A") in
+           let derivs = find_derivations st (Var "B") in
+           assert_bool "Should not find derivations" (derivs = []) );
+       ]
+
 let suite =
   "logic prover tests"
   >::: [
@@ -438,6 +667,9 @@ let suite =
          rule_tests;
          sequent_tests;
          simplify_tests;
+         ast_utility_tests;
+         additional_rule_tests;
+         additional_sequent_tests;
        ]
 
 let () = run_test_tt_main suite

@@ -8,7 +8,19 @@ type t = {
 (** A proof state.
     - [premises] are the user-supplied assumptions.
     - [derived] are formulas inferred from premises and other derived facts.
-    - [goal] is an optional target formula we are trying to prove. *)
+    - [goal] is an optional target formula we are trying to prove.
+    
+    Representation Invariant:
+    - All formulas in [premises] and [derived] are well-formed propositional formulas.
+    - No formula appears in both [premises] and [derived] simultaneously.
+    - [derived] contains only formulas that can be logically derived from [premises]
+      using the available inference rules.
+    
+    Abstraction Function:
+    - AF(t) = (Γ, Δ, G) where:
+      - Γ is the set of premises (from [premises])
+      - Δ is the set of derived formulas (from [derived])
+      - G is the optional goal (from [goal]) *)
 
 val empty : t
 (** The empty proof state: no premises, no derived formulas, and no goal.
@@ -127,3 +139,58 @@ val explain_derivation : t -> prop -> (prop * prop) option
     - If there exist A and A -> B in st.premises or st.derived such that B =
       new_prop, it returns [Some (A, A -> B)].
     - If no such pair exists, it returns [None]. *)
+
+val apply_conjunction_elimination : t -> t
+(** [apply_conjunction_elimination st] applies conjunction elimination to all
+    conjunctions, deriving their components. *)
+
+val apply_disjunction_introduction : t -> t
+(** [apply_disjunction_introduction st] applies disjunction introduction. *)
+
+val apply_hypothetical_syllogism : t -> t
+(** [apply_hypothetical_syllogism st] applies hypothetical syllogism. *)
+
+val apply_contraposition : t -> t
+(** [apply_contraposition st] applies contraposition to all implications. *)
+
+val get_all_formulas : t -> prop list
+(** [get_all_formulas st] returns all formulas in the state. *)
+
+val count_formulas : t -> int
+(** [count_formulas st] returns the total number of formulas. *)
+
+val has_formula : t -> prop -> bool
+(** [has_formula st p] returns true if [p] appears in the state. *)
+
+val remove_premise : t -> prop -> t
+(** [remove_premise st p] removes [p] from premises. *)
+
+val clear_derived : t -> t
+(** [clear_derived st] clears all derived formulas. *)
+
+val clear_goal : t -> t
+(** [clear_goal st] clears the goal. *)
+
+val get_premises : t -> prop list
+(** [get_premises st] returns the list of premises. *)
+
+val get_derived : t -> prop list
+(** [get_derived st] returns the list of derived formulas. *)
+
+val get_goal : t -> prop option
+(** [get_goal st] returns the goal if it exists. *)
+
+val is_empty : t -> bool
+(** [is_empty st] returns true if the state is empty. *)
+
+val get_statistics : t -> int * int * bool * bool
+(** [get_statistics st] returns (premise_count, derived_count, goal_set, goal_reached). *)
+
+val apply_all_rules : t -> t
+(** [apply_all_rules st] applies all inference rules exhaustively. *)
+
+val find_derivations : t -> prop -> (string * prop * prop) list
+(** [find_derivations st p] finds possible ways to derive [p]. *)
+
+val export_state : t -> string
+(** [export_state st] returns a string representation of the state. *)
