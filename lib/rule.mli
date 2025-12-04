@@ -14,3 +14,5 @@ val modus_ponens : prop -> prop -> prop option
       also returns [Some B].
 
     - Otherwise, the result is [None]. *)
+
+val modus_tollens : prop -> prop -> prop option

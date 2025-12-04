@@ -1,6 +1,8 @@
 open Ast
 open Rule
 
+let inference_rules = [ modus_ponens; modus_tollens ]
+
 type t = {
   premises : prop list;
   derived : prop list;
@@ -14,7 +16,8 @@ type t = {
     none. *)
 let empty = { premises = []; derived = []; goal = None }
 
-(* conflicts is a helper function that determines if a premise p conflicts with another premise q *)
+(* conflicts is a helper function that determines if a premise p conflicts with
+   another premise q *)
 let conflicts p q =
   match (p, q) with
   | Not p1, q1 when p1 = q1 -> true
@@ -63,18 +66,22 @@ let add_goal t p = { t with goal = Some p }
 let rec apply_modus_ponens st =
   let known = st.premises @ st.derived in
 
-  (* Compute all new propositions that can be inferred in this round *)
+  (* Compute all new propositions that can be inferred in this round using all
+     inference rules (Modus Ponens, Modus Tollens, etc.). *)
   let new_props =
     List.fold_left
       (fun acc p1 ->
         List.fold_left
           (fun acc2 p2 ->
-            match modus_ponens p1 p2 with
-            | Some p
-              when (not (List.mem p st.premises))
-                   && (not (List.mem p st.derived))
-                   && not (List.mem p acc) -> p :: acc2
-            | _ -> acc2)
+            List.fold_left
+              (fun acc3 rule ->
+                match rule p1 p2 with
+                | Some p
+                  when (not (List.mem p st.premises))
+                       && (not (List.mem p st.derived))
+                       && not (List.mem p acc3) -> p :: acc3
+                | _ -> acc3)
+              acc2 inference_rules)
           acc known)
       [] known
   in

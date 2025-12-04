@@ -1,7 +1,7 @@
 open Ast
 
-(** Raised when the input string cannot be parsed as a valid formula *)
 exception Parse_error of string
+(** Raised when the input string cannot be parsed as a valid formula *)
 
 let trim = String.trim
 
@@ -21,8 +21,7 @@ let find_matching_paren s =
       else
         match s.[i] with
         | '(' -> aux (i + 1) (depth + 1)
-        | ')' ->
-            if depth = 1 then Some i else aux (i + 1) (depth - 1)
+        | ')' -> if depth = 1 then Some i else aux (i + 1) (depth - 1)
         | _ -> aux (i + 1) depth
     in
     aux 1 1
@@ -53,16 +52,14 @@ let find_top_level predicate s =
     | ')' ->
         if !depth = 0 then raise (Parse_error "Unmatched ')'")
         else depth := !depth - 1
-    | _ ->
-        if !depth = 0 && !found = None && predicate i then found := Some i
+    | _ -> if !depth = 0 && !found = None && predicate i then found := Some i
   done;
   if !depth <> 0 then raise (Parse_error "Unmatched '('");
   !found
 
 let find_arrow s =
   find_top_level
-    (fun i ->
-      i < String.length s - 1 && s.[i] = '-' && s.[i + 1] = '>')
+    (fun i -> i < String.length s - 1 && s.[i] = '-' && s.[i + 1] = '>')
     s
 
 let find_and s = find_top_level (fun i -> s.[i] = '&') s
@@ -71,7 +68,8 @@ let is_var_char = function
   | 'A' .. 'Z' -> true
   | _ -> false
 
-(** Recursively parse a string into its simplified propositional formula (type prop).*)
+(** Recursively parse a string into its simplified propositional formula (type
+    prop).*)
 let rec parse_prop s =
   let rec parse_raw s =
     let s = trim s in
@@ -84,22 +82,17 @@ let rec parse_prop s =
       match find_arrow s with
       | Some idx ->
           let left = String.sub s 0 idx in
-          let right =
-            String.sub s (idx + 2) (String.length s - idx - 2)
-          in
+          let right = String.sub s (idx + 2) (String.length s - idx - 2) in
           Imp (parse_raw left, parse_raw right)
       | None -> (
           match find_and s with
           | Some idx ->
               let left = String.sub s 0 idx in
-              let right =
-                String.sub s (idx + 1) (String.length s - idx - 1)
-              in
+              let right = String.sub s (idx + 1) (String.length s - idx - 1) in
               And (parse_raw left, parse_raw right)
           | None ->
               let s = trim s in
               if String.length s = 1 && is_var_char s.[0] then Var s
-              else raise (Parse_error ("Invalid variable: " ^ s))
-        )
+              else raise (Parse_error ("Invalid variable: " ^ s)))
   in
   simplify (parse_raw s)

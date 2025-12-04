@@ -90,6 +90,35 @@ let parser_tests =
 let rule_tests =
   "rule"
   >::: [
+         (* === Modus Tollens Tests === *)
+         ( "modus_tollens basic" >:: fun _ ->
+           let a = Var "A" in
+           let b = Var "B" in
+           let result = modus_tollens (Not b) (Imp (a, b)) in
+           assert_equal
+             ~printer:(function
+               | Some p -> prop_to_string p
+               | None -> "None")
+             (Some (Not a)) result );
+         ( "modus_tollens reversed order" >:: fun _ ->
+           let a = Var "A" in
+           let b = Var "B" in
+           let result = modus_tollens (Imp (a, b)) (Not b) in
+           assert_equal
+             ~printer:(function
+               | Some p -> prop_to_string p
+               | None -> "None")
+             (Some (Not a)) result );
+         ( "modus_tollens no_match" >:: fun _ ->
+           let a = Var "A" in
+           let b = Var "B" in
+           let result = modus_tollens a b in
+           assert_equal
+             ~printer:(function
+               | Some p -> prop_to_string p
+               | None -> "None")
+             None result );
+         (* === Modus Ponens Tests === *)
          ( "modus_ponens forward" >:: fun _ ->
            assert_equal
              ~printer:(function
@@ -279,6 +308,13 @@ let simplify_tests =
 
 let suite =
   "logic prover tests"
-  >::: [ ast_tests; parser_tests; rule_tests; sequent_tests; simplify_tests ]
+  >::: [
+         ast_tests;
+         parser_tests;
+         rule_tests;
+         sequent_tests;
+         simplify_tests;
+         rule_tests;
+       ]
 
 let () = run_test_tt_main suite
