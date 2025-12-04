@@ -15,6 +15,7 @@ type command =
 
 (* -------------------------------------------------------------------------- *)
 let print_state st =
+  print_endline "";
   print_endline "──────────────────────────────";
   print_endline " PROOF STATE";
   print_endline "──────────────────────────────";

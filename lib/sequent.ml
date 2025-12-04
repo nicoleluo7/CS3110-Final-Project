@@ -29,10 +29,10 @@ let add_premise t p =
   match List.find_opt (conflicts p) all_known with
   | Some q ->
       print_endline
-        ("Rejected premise: " ^ prop_to_string p ^ " conflicts with existing: " ^ prop_to_string q ^ ". Sequent not changed.\n");
+        ("Rejected premise: " ^ prop_to_string p ^ " conflicts with existing: " ^ prop_to_string q ^ ". Sequent not changed.");
       t
   | None ->
-    print_endline ("Added premise: " ^ prop_to_string p ^ "\n");
+    print_endline ("Added premise: " ^ prop_to_string p);
       { t with premises = p :: t.premises }
 
 (** add_derived adds a prop to the original list. *)
