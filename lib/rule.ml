@@ -98,14 +98,11 @@ let negation_introduction p1 p2 =
   | Imp (a2, Not b2), Imp (a1, b1) when a1 = a2 && b1 = b2 -> Some (Not a1)
   | _ -> None
 
-(** exportation takes (A & B) -> C and derives A -> (B -> C). *)
-let exportation p =
-  match p with
-  | Imp (And (a, b), c) -> Some (Imp (a, Imp (b, c)))
-  | _ -> None
+(** double_negation_introduction takes A and derives !!A. *)
+let double_negation_introduction p = Some (Not (Not p))
 
-(** importation takes A -> (B -> C) and derives (A & B) -> C. *)
-let importation p =
+(** double_negation_elimination takes !!A and derives A. *)
+let double_negation_elimination p =
   match p with
-  | Imp (a, Imp (b, c)) -> Some (Imp (And (a, b), c))
+  | Not (Not a) -> Some a
   | _ -> None

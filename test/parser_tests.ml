@@ -9,6 +9,16 @@ let assert_parse_error name input =
   | exception Parser.Parse_error _ -> ()
   | _ -> assert_failure (name ^ ": expected parse error for " ^ input)
 
+(* Printer functions for assert_equal *)
+let prop_list_printer props = 
+  "[" ^ String.concat "; " (List.map prop_to_string props) ^ "]"
+
+let prop_option_printer = function
+  | Some p -> "Some(" ^ prop_to_string p ^ ")"
+  | None -> "None"
+
+let int_printer = string_of_int
+
 (* ========== AST Tests ========== *)
 let ast_tests =
   "ast"
@@ -228,14 +238,14 @@ let sequent_tests =
   "sequent"
   >::: [
          ( "empty state" >:: fun _ ->
-           assert_equal [] empty.premises;
-           assert_equal [] empty.derived;
-           assert_equal None empty.goal );
+           assert_equal ~printer:prop_list_printer [] empty.premises;
+           assert_equal ~printer:prop_list_printer [] empty.derived;
+           assert_equal ~printer:prop_option_printer None empty.goal );
          ( "add_premise" >:: fun _ ->
            let st = add_premise empty (Var "A") in
-           assert_equal [ Var "A" ] st.premises;
-           assert_equal [] st.derived;
-           assert_equal None st.goal );
+           assert_equal ~printer:prop_list_printer [ Var "A" ] st.premises;
+           assert_equal ~printer:prop_list_printer [] st.derived;
+           assert_equal ~printer:prop_option_printer None st.goal );
          ( "add_premise multiple" >:: fun _ ->
            let st =
              empty |> fun s ->
@@ -245,22 +255,22 @@ let sequent_tests =
            assert_bool "Should contain B" (List.mem (Var "B") st.premises) );
          ( "add_derived" >:: fun _ ->
            let st = add_derived empty (Var "A") in
-           assert_equal [] st.premises;
-           assert_equal [ Var "A" ] st.derived;
-           assert_equal None st.goal );
+           assert_equal ~printer:prop_list_printer [] st.premises;
+           assert_equal ~printer:prop_list_printer [ Var "A" ] st.derived;
+           assert_equal ~printer:prop_option_printer None st.goal );
          ( "add_derived prevents duplicate" >:: fun _ ->
            let st = add_derived empty (Var "A") in
            let st2 = add_derived st (Var "A") in
-           assert_equal 1 (List.length st2.derived) );
+           assert_equal ~printer:int_printer 1 (List.length st2.derived) );
          ( "add_derived prevents if in premises" >:: fun _ ->
            let st = add_premise empty (Var "A") in
            let st2 = add_derived st (Var "A") in
-           assert_equal [] st2.derived;
+           assert_equal ~printer:prop_list_printer [] st2.derived;
            assert_bool "Should still be in premises"
              (List.mem (Var "A") st2.premises) );
          ( "add_goal" >:: fun _ ->
            let st = add_goal empty (Var "A") in
-           assert_equal (Some (Var "A")) st.goal );
+           assert_equal ~printer:prop_option_printer (Some (Var "A")) st.goal );
          ( "apply_modus_ponens simple" >:: fun _ ->
            let st1 = add_premise empty (Var "A") in
            let st = add_premise st1 (Imp (Var "A", Var "B")) in
@@ -279,7 +289,7 @@ let sequent_tests =
          ( "apply_modus_ponens no new derivations" >:: fun _ ->
            let st = add_premise empty (Var "A") in
            let result = apply_modus_ponens st in
-           assert_equal [] result.derived );
+           assert_equal ~printer:prop_list_printer [] result.derived );
          ( "apply_modus_ponens bidirectional" >:: fun _ ->
            let st =
              empty |> fun s ->
@@ -320,8 +330,8 @@ let sequent_tests =
            let st = apply_modus_ponens st in
            match explain_derivation st (Var "B") with
            | Some (a, imp) ->
-               assert_equal (Var "A") a;
-               assert_equal (Imp (Var "A", Var "B")) imp
+               assert_equal ~printer:prop_to_string (Var "A") a;
+               assert_equal ~printer:prop_to_string (Imp (Var "A", Var "B")) imp
            | None -> assert_failure "Should find derivation" );
          ( "explain_derivation not found" >:: fun _ ->
            let st = add_premise empty (Var "A") in
@@ -337,8 +347,8 @@ let sequent_tests =
            let st = apply_modus_ponens st in
            match explain_derivation st (And (Var "B", Var "C")) with
            | Some (a, imp) ->
-               assert_equal (Var "A") a;
-               assert_equal (Imp (Var "A", And (Var "B", Var "C"))) imp
+               assert_equal ~printer:prop_to_string (Var "A") a;
+               assert_equal ~printer:prop_to_string (Imp (Var "A", And (Var "B", Var "C"))) imp
            | None -> assert_failure "Should find derivation" );
          ( "apply_conjunction_introduction simple" >:: fun _ ->
            let st =
@@ -400,7 +410,7 @@ let sequent_tests =
          >:: fun _ ->
            let st = add_premise empty (Var "A") in
            let result = apply_conjunction_introduction st in
-           assert_equal [] result.derived );
+           assert_equal ~printer:prop_list_printer [] result.derived );
        ]
 
 (* ========== Simplify Tests ========== *)
@@ -479,21 +489,21 @@ let ast_utility_tests =
              (is_implication (Imp (Var "A", Var "B"))) );
          ( "count_operators simple" >:: fun _ ->
            let a, o, i, n = count_operators (And (Var "A", Var "B")) in
-           assert_equal 1 a;
-           assert_equal 0 o;
-           assert_equal 0 i;
-           assert_equal 0 n );
+           assert_equal ~printer:int_printer 1 a;
+           assert_equal ~printer:int_printer 0 o;
+           assert_equal ~printer:int_printer 0 i;
+           assert_equal ~printer:int_printer 0 n );
          ( "count_operators complex" >:: fun _ ->
            let a, o, i, n =
              count_operators (Imp (And (Var "A", Var "B"), Not (Var "C")))
            in
-           assert_equal 1 a;
-           assert_equal 0 o;
-           assert_equal 1 i;
-           assert_equal 1 n );
+           assert_equal ~printer:int_printer 1 a;
+           assert_equal ~printer:int_printer 0 o;
+           assert_equal ~printer:int_printer 1 i;
+           assert_equal ~printer:int_printer 1 n );
          ( "subformulas atomic" >:: fun _ ->
            let subs = subformulas (Var "A") in
-           assert_equal 1 (List.length subs);
+           assert_equal ~printer:int_printer 1 (List.length subs);
            assert_bool "Should contain A" (List.mem (Var "A") subs) );
          ( "subformulas complex" >:: fun _ ->
            let p = And (Var "A", Var "B") in
@@ -509,23 +519,23 @@ let ast_utility_tests =
          );
          ( "get_left_operand" >:: fun _ ->
            match get_left_operand (And (Var "A", Var "B")) with
-           | Some p -> assert_equal (Var "A") p
+           | Some p -> assert_equal ~printer:prop_to_string (Var "A") p
            | None -> assert_failure "Should have left operand" );
          ( "get_right_operand" >:: fun _ ->
            match get_right_operand (Imp (Var "A", Var "B")) with
-           | Some p -> assert_equal (Var "B") p
+           | Some p -> assert_equal ~printer:prop_to_string (Var "B") p
            | None -> assert_failure "Should have right operand" );
          ( "get_negated_formula" >:: fun _ ->
            match get_negated_formula (Not (Var "A")) with
-           | Some p -> assert_equal (Var "A") p
+           | Some p -> assert_equal ~printer:prop_to_string (Var "A") p
            | None -> assert_failure "Should have negated formula" );
          ( "get_antecedent" >:: fun _ ->
            match get_antecedent (Imp (Var "A", Var "B")) with
-           | Some p -> assert_equal (Var "A") p
+           | Some p -> assert_equal ~printer:prop_to_string (Var "A") p
            | None -> assert_failure "Should have antecedent" );
          ( "get_consequent" >:: fun _ ->
            match get_consequent (Imp (Var "A", Var "B")) with
-           | Some p -> assert_equal (Var "B") p
+           | Some p -> assert_equal ~printer:prop_to_string (Var "B") p
            | None -> assert_failure "Should have consequent" );
        ]
 
@@ -535,15 +545,15 @@ let additional_rule_tests =
   >::: [
          ( "conjunction_elimination_left" >:: fun _ ->
            match conjunction_elimination_left (And (Var "A", Var "B")) with
-           | Some p -> assert_equal (Var "A") p
+           | Some p -> assert_equal ~printer:prop_to_string (Var "A") p
            | None -> assert_failure "Should eliminate left" );
          ( "conjunction_elimination_right" >:: fun _ ->
            match conjunction_elimination_right (And (Var "A", Var "B")) with
-           | Some p -> assert_equal (Var "B") p
+           | Some p -> assert_equal ~printer:prop_to_string (Var "B") p
            | None -> assert_failure "Should eliminate right" );
          ( "disjunction_introduction_left" >:: fun _ ->
            match disjunction_introduction_left (Var "A") (Var "B") with
-           | Some p -> assert_equal (Or (Var "A", Var "B")) p
+           | Some p -> assert_equal ~printer:prop_to_string (Or (Var "A", Var "B")) p
            | None -> assert_failure "Should introduce disjunction" );
          ( "hypothetical_syllogism" >:: fun _ ->
            match
@@ -551,20 +561,20 @@ let additional_rule_tests =
                (Imp (Var "A", Var "B"))
                (Imp (Var "B", Var "C"))
            with
-           | Some p -> assert_equal (Imp (Var "A", Var "C")) p
+           | Some p -> assert_equal ~printer:prop_to_string (Imp (Var "A", Var "C")) p
            | None -> assert_failure "Should apply hypothetical syllogism" );
          ( "contraposition" >:: fun _ ->
            match contraposition (Imp (Var "A", Var "B")) with
-           | Some p -> assert_equal (Imp (Not (Var "B"), Not (Var "A"))) p
+           | Some p -> assert_equal ~printer:prop_to_string (Imp (Not (Var "B"), Not (Var "A"))) p
            | None -> assert_failure "Should apply contraposition" );
-         ( "exportation" >:: fun _ ->
-           match exportation (Imp (And (Var "A", Var "B"), Var "C")) with
-           | Some p -> assert_equal (Imp (Var "A", Imp (Var "B", Var "C"))) p
-           | None -> assert_failure "Should apply exportation" );
-         ( "importation" >:: fun _ ->
-           match importation (Imp (Var "A", Imp (Var "B", Var "C"))) with
-           | Some p -> assert_equal (Imp (And (Var "A", Var "B"), Var "C")) p
-           | None -> assert_failure "Should apply importation" );
+         ( "double_negation_introduction" >:: fun _ ->
+           match double_negation_introduction (Var "A") with
+           | Some p -> assert_equal ~printer:prop_to_string (Not (Not (Var "A"))) p
+           | None -> assert_failure "Should introduce double negation" );
+         ( "double_negation_elimination" >:: fun _ ->
+           match double_negation_elimination (Not (Not (Var "A"))) with
+           | Some p -> assert_equal ~printer:prop_to_string (Var "A") p
+           | None -> assert_failure "Should eliminate double negation" );
        ]
 
 (* ========== Additional Sequent Tests ========== *)
@@ -603,7 +613,7 @@ let additional_sequent_tests =
              empty |> fun s ->
              add_premise s (Var "A") |> fun s -> add_premise s (Var "B")
            in
-           assert_equal 2 (count_formulas st) );
+           assert_equal ~printer:int_printer 2 (count_formulas st) );
          ( "has_formula true" >:: fun _ ->
            let st = empty |> fun s -> add_premise s (Var "A") in
            assert_bool "Should have A" (has_formula st (Var "A")) );
@@ -613,7 +623,7 @@ let additional_sequent_tests =
          ( "remove_premise" >:: fun _ ->
            let st = empty |> fun s -> add_premise s (Var "A") in
            let st' = remove_premise st (Var "A") in
-           assert_equal [] st'.premises );
+           assert_equal ~printer:prop_list_printer [] st'.premises );
          ( "clear_derived" >:: fun _ ->
            let st =
              empty |> fun s ->
@@ -622,11 +632,11 @@ let additional_sequent_tests =
              apply_modus_ponens s
            in
            let st' = clear_derived st in
-           assert_equal [] st'.derived );
+           assert_equal ~printer:prop_list_printer [] st'.derived );
          ( "clear_goal" >:: fun _ ->
            let st = empty |> fun s -> add_goal s (Var "A") in
            let st' = clear_goal st in
-           assert_equal None st'.goal );
+           assert_equal ~printer:prop_option_printer None st'.goal );
          ( "is_empty true" >:: fun _ ->
            assert_bool "Should be empty" (is_empty empty) );
          ( "is_empty false" >:: fun _ ->
@@ -640,8 +650,8 @@ let additional_sequent_tests =
            let prem_count, deriv_count, goal_set, goal_reached =
              get_statistics st
            in
-           assert_equal 1 prem_count;
-           assert_equal 0 deriv_count;
+           assert_equal ~printer:int_printer 1 prem_count;
+           assert_equal ~printer:int_printer 0 deriv_count;
            assert_bool "Goal should be set" goal_set;
            assert_bool "Goal should be reached" goal_reached );
          ( "find_derivations found" >:: fun _ ->
@@ -658,6 +668,197 @@ let additional_sequent_tests =
            assert_bool "Should not find derivations" (derivs = []) );
        ]
 
+let new_rules_tests =
+  "new_rules"
+  >::: [
+         ( "apply_disjunction_elimination" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Or (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "A", Var "C")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "C"))
+           in
+           let result = Sequent.apply_disjunction_elimination st in
+           assert_bool "Should derive C"
+             (List.mem (Var "C") result.derived) );
+         ( "apply_disjunction_elimination no match" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Or (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "A", Var "C"))
+           in
+           let result = Sequent.apply_disjunction_elimination st in
+           assert_bool "Should not derive C without both implications"
+             (not (List.mem (Var "C") result.derived)) );
+         ( "apply_biconditional_introduction" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "A"))
+           in
+           let result = Sequent.apply_biconditional_introduction st in
+           let expected = And (Imp (Var "A", Var "B"), Imp (Var "B", Var "A")) in
+           assert_bool "Should derive biconditional"
+             (List.mem expected result.derived) );
+         ( "apply_biconditional_elimination left" >:: fun _ ->
+           let st =
+             empty
+             |> fun s ->
+             add_premise s
+               (And (Imp (Var "A", Var "B"), Imp (Var "B", Var "A")))
+           in
+           let result = Sequent.apply_biconditional_elimination st in
+           assert_bool "Should derive A -> B"
+             (List.mem (Imp (Var "A", Var "B")) result.derived) );
+         ( "apply_biconditional_elimination right" >:: fun _ ->
+           let st =
+             empty
+             |> fun s ->
+             add_premise s
+               (And (Imp (Var "A", Var "B"), Imp (Var "B", Var "A")))
+           in
+           let result = Sequent.apply_biconditional_elimination st in
+           assert_bool "Should derive B -> A"
+             (List.mem (Imp (Var "B", Var "A")) result.derived) );
+         ( "apply_negation_introduction" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "A", Not (Var "B")))
+           in
+           let result = Sequent.apply_negation_introduction st in
+           assert_bool "Should derive !A"
+             (List.mem (Not (Var "A")) result.derived) );
+         ( "apply_double_negation_introduction" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Var "A") in
+           let result = apply_double_negation_introduction st in
+           assert_bool "Should derive !!A"
+             (List.mem (Not (Not (Var "A"))) result.derived) );
+         ( "apply_double_negation_elimination" >:: fun _ ->
+           let st =
+             empty |> fun s -> add_premise s (Not (Not (Var "A")))
+           in
+           let result = Sequent.apply_double_negation_elimination st in
+           assert_bool "Should derive A"
+             (List.mem (Var "A") result.derived) );
+         ( "apply_all_rules comprehensive" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "C")) |> fun s ->
+             add_premise s (And (Var "D", Var "E"))
+           in
+           let result = Sequent.apply_all_rules st in
+           (* Should derive B via MP *)
+           assert_bool "Should derive B via MP"
+             (List.mem (Var "B") result.derived);
+           (* Should derive A -> C via HS *)
+           assert_bool "Should derive A -> C via HS"
+             (List.mem (Imp (Var "A", Var "C")) result.derived);
+           (* Should derive D and E via Conj Elim *)
+           assert_bool "Should derive D via Conj Elim"
+             (List.mem (Var "D") result.derived);
+           assert_bool "Should derive E via Conj Elim"
+             (List.mem (Var "E") result.derived);
+           (* Should derive !C -> !B via Contraposition *)
+           assert_bool "Should derive !C -> !B via Contraposition"
+             (List.mem (Imp (Not (Var "C"), Not (Var "B"))) result.derived) );
+         ( "apply_all_rules with disjunction" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Or (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "A", Var "C")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "C"))
+           in
+           let result = Sequent.apply_all_rules st in
+           assert_bool "Should derive C via Disjunction Elimination"
+             (List.mem (Var "C") result.derived) );
+         ( "apply_all_rules with biconditional" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "A"))
+           in
+           let result = Sequent.apply_all_rules st in
+           let bicond = And (Imp (Var "A", Var "B"), Imp (Var "B", Var "A")) in
+           assert_bool "Should derive biconditional"
+             (List.mem bicond result.derived) );
+         ( "apply_all_rules with double negation" >:: fun _ ->
+           let st =
+             empty |> fun s -> add_premise s (Not (Not (Var "A")))
+           in
+           let result = Sequent.apply_all_rules st in
+           assert_bool "Should derive A via Double Negation Elimination"
+             (List.mem (Var "A") result.derived) );
+         ( "apply_all_rules with negation introduction" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "A", Not (Var "B")))
+           in
+           let result = Sequent.apply_all_rules st in
+           assert_bool "Should derive !A via Negation Introduction"
+             (List.mem (Not (Var "A")) result.derived) );
+       ]
+
+let rule_function_tests =
+  "rule_functions"
+  >::: [
+         ( "disjunction_elimination rule" >:: fun _ ->
+           let result =
+             disjunction_elimination (Or (Var "A", Var "B"))
+               (Imp (Var "A", Var "C"))
+               (Imp (Var "B", Var "C"))
+           in
+           match result with
+           | Some p -> assert_equal ~printer:prop_to_string (Var "C") p
+           | None -> assert_failure "Should derive C" );
+         ( "biconditional_introduction rule" >:: fun _ ->
+           let result =
+             biconditional_introduction (Imp (Var "A", Var "B"))
+               (Imp (Var "B", Var "A"))
+           in
+           match result with
+           | Some p ->
+               let expected = And (Imp (Var "A", Var "B"), Imp (Var "B", Var "A")) in
+               assert_equal ~printer:prop_to_string expected p
+           | None -> assert_failure "Should derive biconditional" );
+         ( "biconditional_elimination_left rule" >:: fun _ ->
+           let bicond = And (Imp (Var "A", Var "B"), Imp (Var "B", Var "A")) in
+           let result = biconditional_elimination_left bicond in
+           match result with
+           | Some p ->
+               assert_equal ~printer:prop_to_string (Imp (Var "A", Var "B")) p
+           | None -> assert_failure "Should derive A -> B" );
+         ( "biconditional_elimination_right rule" >:: fun _ ->
+           let bicond = And (Imp (Var "A", Var "B"), Imp (Var "B", Var "A")) in
+           let result = biconditional_elimination_right bicond in
+           match result with
+           | Some p ->
+               assert_equal ~printer:prop_to_string (Imp (Var "B", Var "A")) p
+           | None -> assert_failure "Should derive B -> A" );
+         ( "negation_introduction rule" >:: fun _ ->
+           let result =
+             negation_introduction (Imp (Var "A", Var "B"))
+               (Imp (Var "A", Not (Var "B")))
+           in
+           match result with
+           | Some p -> assert_equal ~printer:prop_to_string (Not (Var "A")) p
+           | None -> assert_failure "Should derive !A" );
+         ( "double_negation_introduction rule" >:: fun _ ->
+           let result = double_negation_introduction (Var "A") in
+           match result with
+           | Some p ->
+               assert_equal ~printer:prop_to_string (Not (Not (Var "A"))) p
+           | None -> assert_failure "Should derive !!A" );
+         ( "double_negation_elimination rule" >:: fun _ ->
+           let result = double_negation_elimination (Not (Not (Var "A"))) in
+           match result with
+           | Some p -> assert_equal ~printer:prop_to_string (Var "A") p
+           | None -> assert_failure "Should derive A" );
+       ]
+
 let suite =
   "logic prover tests"
   >::: [
@@ -669,6 +870,8 @@ let suite =
          ast_utility_tests;
          additional_rule_tests;
          additional_sequent_tests;
+         new_rules_tests;
+         rule_function_tests;
        ]
 
 let () = run_test_tt_main suite

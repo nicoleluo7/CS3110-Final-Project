@@ -446,11 +446,11 @@ type prop =
 (* Convert a prop back into a readable string. Used for printing formulas in the
    REPL and later in the proof interface. *)
 let rec prop_to_string = function
-  | <span data-count="202">V</span>ar p -&gt; p
-  | <span data-count="33">A</span>nd (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="33">g</span> p1 ^ " &amp; " ^ prop_to_strin<span data-count="33">g</span> p2 ^ ")"
-  | <span data-count="18">O</span>r (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="18">g</span> p1 ^ " | " ^ prop_to_strin<span data-count="18">g</span> p2 ^ ")"
-  | <span data-count="31">I</span>mp (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="31">g</span> p1 ^ " -&gt; " ^ prop_to_strin<span data-count="31">g</span> p2 ^ ")"
-  | <span data-count="18">N</span>ot p -&gt; "!" ^ prop_to_strin<span data-count="18">g</span> p
+  | <span data-count="276">V</span>ar p -&gt; p
+  | <span data-count="38">A</span>nd (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="38">g</span> p1 ^ " &amp; " ^ prop_to_strin<span data-count="38">g</span> p2 ^ ")"
+  | <span data-count="21">O</span>r (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="21">g</span> p1 ^ " | " ^ prop_to_strin<span data-count="21">g</span> p2 ^ ")"
+  | <span data-count="58">I</span>mp (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="58">g</span> p1 ^ " -&gt; " ^ prop_to_strin<span data-count="58">g</span> p2 ^ ")"
+  | <span data-count="30">N</span>ot p -&gt; "!" ^ prop_to_strin<span data-count="30">g</span> p
 
 (* [simplify s] handles recursively handles negation for s *)
 let rec simplify s = <span data-count="88">m</span>atch s with

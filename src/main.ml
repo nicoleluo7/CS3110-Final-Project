@@ -2,6 +2,7 @@ open Ast
 open Parser
 open Sequent
 
+(** Commands that can be executed in the REPL. *)
 type command =
   | AddPremise of prop
   | SetGoal of prop
@@ -155,7 +156,7 @@ let print_shortcuts () =
   print_endline "──────────────────────────────";
   print_endline "  p           premise";
   print_endline "  g           goal";
-  print_endline "  d           derive (MP & Conj Intro)";
+  print_endline "  d           derive (basic rules: MP, MT, HS, Conj Intro/Elim, Contraposition)";
   print_endline "  ci          conj intro";
   print_endline "  s           show";
   print_endline "  aa          applyall";
@@ -178,12 +179,11 @@ let print_rules () =
   print_endline "";
   print_endline " Advanced Rules:";
   print_endline "  • Disjunction Intro:      From A, derive A | B";
+  print_endline "  • Disjunction Elim:       From A | B, A -> C, and B -> C, derive C";
   print_endline "  • Hypothetical Syllogism: From A -> B and B -> C, derive A -> C";
   print_endline "  • Contraposition:         From A -> B, derive !B -> !A";
   print_endline "  • Double Negation Intro:   From A, derive !!A";
   print_endline "  • Double Negation Elim:    From !!A, derive A";
-  print_endline "  • Exportation:             From (A & B) -> C, derive A -> (B -> C)";
-  print_endline "  • Importation:             From A -> (B -> C), derive (A & B) -> C";
   print_endline "  • Biconditional Intro:     From A -> B and B -> A, derive (A->B)&(B->A)";
   print_endline "  • Biconditional Elim:      Extract components from biconditionals";
   print_endline "  • Negation Introduction:   From A -> B and A -> !B, derive !A";
@@ -198,7 +198,7 @@ let print_help () =
   print_endline " Proof Construction:";
   print_endline "  premise <formula>   Add a premise (auto-applies basic rules)";
   print_endline "  goal <formula>      Set the goal (auto-applies basic rules)";
-  print_endline "  derive              Apply Modus Ponens & Conjunction Intro";
+  print_endline "  derive              Apply basic inference rules (MP, MT, HS, Conj Intro/Elim, Contraposition)";
   print_endline "  conj                Apply Conjunction Introduction only";
   print_endline "  applyall            Apply ALL inference rules exhaustively";
   print_endline "";
@@ -227,9 +227,11 @@ let print_help () =
 (* -------------------------------------------------------------------------- *)
 let apply_and_show st =
   let before = st.derived in
-  (* Apply both Modus Ponens and Conjunction Introduction *)
+  (* Apply basic inference rules: MP, MT, HS, Conj Intro/Elim, and Contraposition *)
   let st' = apply_modus_ponens st in
   let st'' = apply_conjunction_introduction st' in
+  let st''' = Sequent.apply_conjunction_elimination st'' in
+  let st'''' = Sequent.apply_contraposition st''' in
   let after = st''.derived in
 
   (* only show new derivations *)
@@ -252,8 +254,8 @@ let apply_and_show st =
     new_items;
 
   (* always show full proof state *)
-  print_state st'';
-  st''
+  print_state st'''';
+  st''''
 
 (* -------------------------------------------------------------------------- *)
 let apply_conj_and_show st =
@@ -369,10 +371,14 @@ let rec loop st =
           loop st'
       | Ok (Export filename) ->
           let content = Sequent.export_state st in
-          let ch = open_out filename in
-          output_string ch content;
-          close_out ch;
-          Printf.printf "State exported to %s\n" filename;
+          (try
+             let ch = open_out filename in
+             output_string ch content;
+             close_out ch;
+             Printf.printf "State exported to %s\n" filename
+           with
+           | Sys_error msg ->
+               Printf.printf "Error: could not write to file %s: %s\n" filename msg);
           loop st
       | Ok Stats ->
           let prem_count, deriv_count, goal_set, goal_reached =
@@ -429,19 +435,24 @@ let rec loop st =
             Printf.printf "Error: file not found: %s\n" filename;
             loop st)
           else
-            let ch = open_in filename in
-            let rec read_all acc =
-              match input_line ch with
-              | line -> read_all (line :: acc)
-              | exception End_of_file -> List.rev acc
-            in
-            let lines = read_all [] in
-            close_in ch;
+            (try
+               let ch = open_in filename in
+               let rec read_all acc =
+                 match input_line ch with
+                 | line -> read_all (line :: acc)
+                 | exception End_of_file -> List.rev acc
+               in
+               let lines = read_all [] in
+               close_in ch;
 
-            print_endline ("Loading script: " ^ filename);
-            let st' = run_script st lines in
-            print_endline "File loaded!";
-            loop st')
+               print_endline ("Loading script: " ^ filename);
+               let st' = run_script st lines in
+               print_endline "File loaded!";
+               loop st'
+             with
+             | Sys_error msg ->
+                 Printf.printf "Error: could not read file %s: %s\n" filename msg;
+                 loop st))
 
 (* -------------------------------------------------------------------------- *)
 let () =

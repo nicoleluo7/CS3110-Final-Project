@@ -15,6 +15,17 @@ type t = {
 
 let empty = { premises = []; derived = []; goal = None }
 
+(* Helper function to take first n elements from a list *)
+let rec take n = function
+  | [] -> []
+  | _ when n <= 0 -> []
+  | x :: xs -> x :: take (n - 1) xs
+
+(* Helper: check if a formula is simple (not a conjunction or disjunction) *)
+let is_simple = function
+  | Var _ | Imp _ | Not _ -> true
+  | And _ | Or _ -> false
+
 (* conflicts is a helper function that determines if a premise p conflicts with
    another premise q *)
 let conflicts p q =
@@ -62,33 +73,50 @@ let add_goal t p = { t with goal = Some p }
 (** apply_modus_ponens applies modus ponens rule to all props in the premises
     and derived list of the record and adds any potential new props to the
     derived list. *)
-let rec apply_modus_ponens st =
-  let known = st.premises @ st.derived in
+let apply_modus_ponens st =
+  let max_iterations = 10 in
+  let max_formulas_to_process = 30 in
+  let rec loop st' iteration =
+    if iteration >= max_iterations then st'
+    else
+      let known = st'.premises @ st'.derived in
+      (* Limit the number of formulas we process to prevent explosion *)
+      let known = if List.length known > max_formulas_to_process 
+        then take max_formulas_to_process known else known in
 
-  (* Compute all new propositions that can be inferred in this round using all
-     inference rules (Modus Ponens, Modus Tollens, etc.). *)
-  let new_props =
-    List.fold_left
-      (fun acc p1 ->
+      (* Compute all new propositions that can be inferred in this round using all
+         inference rules (Modus Ponens, Modus Tollens, etc.). *)
+      let new_props =
         List.fold_left
-          (fun acc2 p2 ->
-            List.fold_left
-              (fun acc3 rule ->
-                match rule p1 p2 with
-                | Some p
-                  when (not (List.mem p st.premises))
-                       && (not (List.mem p st.derived))
-                       && not (List.mem p acc3) -> p :: acc3
-                | _ -> acc3)
-              acc2 inference_rules)
-          acc known)
-      [] known
+          (fun acc p1 ->
+            (* Limit total new formulas created *)
+            if List.length acc >= 50 then acc
+            else
+              List.fold_left
+                (fun acc2 p2 ->
+                  if List.length acc2 >= 50 then acc2
+                  else
+                    List.fold_left
+                      (fun acc3 rule ->
+                        if List.length acc3 >= 50 then acc3
+                        else
+                          match rule p1 p2 with
+                          | Some p
+                            when (not (List.mem p st'.premises))
+                                 && (not (List.mem p st'.derived))
+                                 && not (List.mem p acc3) -> p :: acc3
+                          | _ -> acc3)
+                      acc2 inference_rules)
+                acc known)
+          [] known
+      in
+      match new_props with
+      | [] -> st'
+      | _ ->
+          let new_st = List.fold_left add_derived st' new_props in
+          loop new_st (iteration + 1)
   in
-  match new_props with
-  | [] -> st
-  | _ ->
-      let new_st = List.fold_left add_derived st new_props in
-      apply_modus_ponens new_st
+  loop st 0
 
 (** apply_conjunction_introduction applies conjunction introduction rule to all
     pairs of props in the premises and derived list and adds any potential new
@@ -98,31 +126,31 @@ let rec apply_modus_ponens st =
     (atomic variables, implications, negations) and not conjunctions themselves. *)
 let apply_conjunction_introduction st =
   let known = st.premises @ st.derived in
-
-  (* Helper: check if a formula is simple (not a conjunction or disjunction) *)
-  let is_simple = function
-    | Var _ | Imp _ | Not _ -> true
-    | And _ | Or _ -> false
-  in
+  (* Limit the number of formulas we consider to prevent exponential explosion *)
+  let max_formulas = 50 in
+  let known = if List.length known > max_formulas then take max_formulas known else known in
 
   (* Compute all new propositions that can be inferred *)
   let new_props =
     List.fold_left
       (fun acc p1 ->
-        List.fold_left
-          (fun acc2 p2 ->
-            (* Don't conjoin a proposition with itself *)
-            if p1 = p2 then acc2
-            (* Only combine simple formulas to avoid nested conjunctions *)
-            else if not (is_simple p1 && is_simple p2) then acc2
-            else
-              match conjunction_introduction p1 p2 with
-              | Some p
-                when (not (List.mem p st.premises))
-                     && (not (List.mem p st.derived))
-                     && not (List.mem p acc) -> p :: acc2
-              | _ -> acc2)
-          acc known)
+        (* Limit the number of new formulas we create *)
+        if List.length acc >= 100 then acc
+        else
+          List.fold_left
+            (fun acc2 p2 ->
+              (* Don't conjoin a proposition with itself *)
+              if p1 = p2 then acc2
+              (* Only combine simple formulas to avoid nested conjunctions *)
+              else if not (is_simple p1 && is_simple p2) then acc2
+              else
+                match conjunction_introduction p1 p2 with
+                | Some p
+                  when (not (List.mem p st.premises))
+                       && (not (List.mem p st.derived))
+                       && not (List.mem p acc) -> p :: acc2
+                | _ -> acc2)
+            acc known)
       [] known
   in
   (* Single pass: add all new props and return (no recursion) *)
@@ -212,38 +240,124 @@ let apply_conjunction_elimination st =
   List.fold_left add_derived st (new_props @ new_props2)
 
 (** [apply_disjunction_introduction st] applies disjunction introduction to all
-    formulas, creating disjunctions with other formulas. *)
+    formulas, creating disjunctions with other formulas.
+    Note: To avoid excessive nesting, we only combine "simple" formulas
+    (atomic variables, implications, negations) and not disjunctions themselves. *)
 let apply_disjunction_introduction st =
   let known = st.premises @ st.derived in
+  (* Limit the number of formulas we consider to prevent exponential explosion *)
+  let max_formulas = 50 in
+  let known = if List.length known > max_formulas then take max_formulas known else known in
+  
   let new_props =
     List.fold_left
       (fun acc p1 ->
-        List.fold_left
-          (fun acc2 p2 ->
-            if p1 = p2 then acc2
-            else
-              match disjunction_introduction_left p1 p2 with
-              | Some p
-                when (not (List.mem p st.premises))
-                     && (not (List.mem p st.derived))
-                     && not (List.mem p acc)
-                     && not (List.mem p acc2) -> p :: acc2
-              | _ -> acc2)
-          acc known)
+        (* Limit the number of new formulas we create *)
+        if List.length acc >= 100 then acc
+        else
+          List.fold_left
+            (fun acc2 p2 ->
+              if p1 = p2 then acc2
+              (* Only combine simple formulas to avoid nested disjunctions *)
+              else if not (is_simple p1 && is_simple p2) then acc2
+              else
+                match disjunction_introduction_left p1 p2 with
+                | Some p
+                  when (not (List.mem p st.premises))
+                       && (not (List.mem p st.derived))
+                       && not (List.mem p acc)
+                       && not (List.mem p acc2) -> p :: acc2
+                | _ -> acc2)
+            acc known)
       [] known
   in
   List.fold_left add_derived st new_props
 
 (** [apply_hypothetical_syllogism st] applies hypothetical syllogism to derive
     new implications from chains of implications. *)
-let rec apply_hypothetical_syllogism st =
+let apply_hypothetical_syllogism st =
+  let max_iterations = 20 in
+  let rec loop st' iteration =
+    if iteration >= max_iterations then st'
+    else
+      let known = st'.premises @ st'.derived in
+      let new_props =
+        List.fold_left
+          (fun acc p1 ->
+            List.fold_left
+              (fun acc2 p2 ->
+                match hypothetical_syllogism p1 p2 with
+                | Some p
+                  when (not (List.mem p st'.premises))
+                       && (not (List.mem p st'.derived))
+                       && not (List.mem p acc)
+                       && not (List.mem p acc2) -> p :: acc2
+                | _ -> acc2)
+              acc known)
+          [] known
+      in
+      match new_props with
+      | [] -> st'
+      | _ ->
+          let new_st = List.fold_left add_derived st' new_props in
+          loop new_st (iteration + 1)
+  in
+  loop st 0
+
+(** [apply_contraposition st] applies contraposition to all implications. *)
+let apply_contraposition st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc p ->
+        match contraposition p with
+        | Some p'
+          when (not (List.mem p' st.premises))
+               && (not (List.mem p' st.derived))
+               && not (List.mem p' acc) -> p' :: acc
+        | _ -> acc)
+      [] known
+  in
+  List.fold_left add_derived st new_props
+
+(** [apply_disjunction_elimination st] applies disjunction elimination: from A | B,
+    A -> C, and B -> C, derive C. *)
+let apply_disjunction_elimination st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc disj ->
+        match disj with
+        | Or (a, b) ->
+            List.fold_left
+              (fun acc2 imp1 ->
+                List.fold_left
+                  (fun acc3 imp2 ->
+                    match disjunction_elimination disj imp1 imp2 with
+                    | Some p
+                      when (not (List.mem p st.premises))
+                           && (not (List.mem p st.derived))
+                           && not (List.mem p acc)
+                           && not (List.mem p acc2)
+                           && not (List.mem p acc3) -> p :: acc3
+                    | _ -> acc3)
+                  acc2 known)
+              acc known
+        | _ -> acc)
+      [] known
+  in
+  List.fold_left add_derived st new_props
+
+(** [apply_biconditional_introduction st] applies biconditional introduction:
+    from A -> B and B -> A, derive (A -> B) & (B -> A). *)
+let apply_biconditional_introduction st =
   let known = st.premises @ st.derived in
   let new_props =
     List.fold_left
       (fun acc p1 ->
         List.fold_left
           (fun acc2 p2 ->
-            match hypothetical_syllogism p1 p2 with
+            match biconditional_introduction p1 p2 with
             | Some p
               when (not (List.mem p st.premises))
                    && (not (List.mem p st.derived))
@@ -253,19 +367,90 @@ let rec apply_hypothetical_syllogism st =
           acc known)
       [] known
   in
-  match new_props with
-  | [] -> st
-  | _ ->
-      let new_st = List.fold_left add_derived st new_props in
-      apply_hypothetical_syllogism new_st
+  List.fold_left add_derived st new_props
 
-(** [apply_contraposition st] applies contraposition to all implications. *)
-let apply_contraposition st =
+(** [apply_biconditional_elimination st] applies biconditional elimination:
+    from (A -> B) & (B -> A), derive A -> B and B -> A. *)
+let apply_biconditional_elimination st =
   let known = st.premises @ st.derived in
   let new_props =
     List.fold_left
       (fun acc p ->
-        match contraposition p with
+        let left_opt = biconditional_elimination_left p in
+        let right_opt = biconditional_elimination_right p in
+        let left_new =
+          match left_opt with
+          | Some p'
+            when (not (List.mem p' st.premises))
+                 && (not (List.mem p' st.derived))
+                 && not (List.mem p' acc) -> [ p' ]
+          | _ -> []
+        in
+        let right_new =
+          match right_opt with
+          | Some p'
+            when (not (List.mem p' st.premises))
+                 && (not (List.mem p' st.derived))
+                 && not (List.mem p' acc)
+                 && not (List.mem p' left_new) -> [ p' ]
+          | _ -> []
+        in
+        left_new @ right_new @ acc)
+      [] known
+  in
+  List.fold_left add_derived st new_props
+
+(** [apply_negation_introduction st] applies negation introduction:
+    from A -> B and A -> !B, derive !A. *)
+let apply_negation_introduction st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc p1 ->
+        List.fold_left
+          (fun acc2 p2 ->
+            match negation_introduction p1 p2 with
+            | Some p
+              when (not (List.mem p st.premises))
+                   && (not (List.mem p st.derived))
+                   && not (List.mem p acc)
+                   && not (List.mem p acc2) -> p :: acc2
+            | _ -> acc2)
+          acc known)
+      [] known
+  in
+  List.fold_left add_derived st new_props
+
+(** [apply_double_negation_introduction st] applies double negation introduction:
+    from A, derive !!A. Only applies to formulas that are not already double
+    negations to prevent infinite nesting (e.g., don't create !!!!A from !!A). *)
+let apply_double_negation_introduction st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc p ->
+        (* Only apply to formulas that are not already double negations *)
+        match p with
+        | Not (Not _) -> acc
+        | _ -> (
+            match double_negation_introduction p with
+            | Some p'
+              when (not (List.mem p' st.premises))
+                   && (not (List.mem p' st.derived))
+                   && not (List.mem p' acc) -> p' :: acc
+            | _ -> acc))
+      [] known
+  in
+  List.fold_left add_derived st new_props
+
+(** [apply_double_negation_elimination st] applies double negation elimination:
+    from !!A, derive A. *)
+let apply_double_negation_elimination st =
+  let known = st.premises @ st.derived in
+  let new_props =
+    List.fold_left
+      (fun acc p ->
+        match double_negation_elimination p with
         | Some p'
           when (not (List.mem p' st.premises))
                && (not (List.mem p' st.derived))
@@ -317,15 +502,33 @@ let get_statistics st =
   let goal_reached = judge_goal st in
   (premise_count, derived_count, goal_set, goal_reached)
 
-(** [apply_all_rules st] applies all available inference rules exhaustively. *)
-let rec apply_all_rules st =
-  let st1 = apply_modus_ponens st in
-  let st2 = apply_conjunction_introduction st1 in
-  let st3 = apply_conjunction_elimination st2 in
-  let st4 = apply_hypothetical_syllogism st3 in
-  let st5 = apply_contraposition st4 in
-  if count_formulas st5 = count_formulas st then st5
-  else apply_all_rules st5
+(** [apply_all_rules st] applies all available inference rules exhaustively.
+    Uses an iteration limit to prevent infinite loops. *)
+let apply_all_rules st =
+  let max_iterations = 5 in
+  let rec loop st' iteration =
+    if iteration >= max_iterations then st'
+    else
+      let initial_formulas = get_all_formulas st' in
+      let initial_set = List.sort compare initial_formulas in
+      let st1 = apply_modus_ponens st' in
+      let st2 = apply_conjunction_introduction st1 in
+      let st3 = apply_conjunction_elimination st2 in
+      let st4 = apply_contraposition st3 in
+      let st5 = apply_disjunction_introduction st4 in
+      let st6 = apply_disjunction_elimination st5 in
+      let st7 = apply_biconditional_introduction st6 in
+      let st8 = apply_biconditional_elimination st7 in
+      let st9 = apply_negation_introduction st8 in
+      let st10 = apply_double_negation_introduction st9 in
+      let st11 = apply_double_negation_elimination st10 in
+      let final_formulas = get_all_formulas st11 in
+      let final_set = List.sort compare final_formulas in
+      (* Terminate if the set of formulas hasn't changed *)
+      if initial_set = final_set then st11
+      else loop st11 (iteration + 1)
+  in
+  loop st 0
 
 (** [find_derivations st p] attempts to find how [p] could be derived from the
     current state using various rules. Returns a list of possible explanations. *)

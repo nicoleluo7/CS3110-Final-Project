@@ -153,6 +153,24 @@ val apply_hypothetical_syllogism : t -> t
 val apply_contraposition : t -> t
 (** [apply_contraposition st] applies contraposition to all implications. *)
 
+val apply_disjunction_elimination : t -> t
+(** [apply_disjunction_elimination st] applies disjunction elimination. *)
+
+val apply_biconditional_introduction : t -> t
+(** [apply_biconditional_introduction st] applies biconditional introduction. *)
+
+val apply_biconditional_elimination : t -> t
+(** [apply_biconditional_elimination st] applies biconditional elimination. *)
+
+val apply_negation_introduction : t -> t
+(** [apply_negation_introduction st] applies negation introduction. *)
+
+val apply_double_negation_introduction : t -> t
+(** [apply_double_negation_introduction st] applies double negation introduction. *)
+
+val apply_double_negation_elimination : t -> t
+(** [apply_double_negation_elimination st] applies double negation elimination. *)
+
 val get_all_formulas : t -> prop list
 (** [get_all_formulas st] returns all formulas in the state. *)
 
