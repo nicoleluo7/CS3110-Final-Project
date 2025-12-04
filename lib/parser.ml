@@ -71,28 +71,35 @@ let is_var_char = function
   | 'A' .. 'Z' -> true
   | _ -> false
 
-(** Recursively parse a string into a propositional formula (type prop). *)
+(** Recursively parse a string into its simplified propositional formula (type prop).*)
 let rec parse_prop s =
-  let s = trim s in
-  if s = "" then raise (Parse_error "Empty formula")
-  else if s.[0] = '!' then
-    let rest = String.sub s 1 (String.length s - 1) in
-    Not (parse_prop rest)
-  else
-    let s = strip_outer_parens s in
-    match find_arrow s with
-    | Some idx ->
-        let left = String.sub s 0 idx in
-        let right = String.sub s (idx + 2) (String.length s - idx - 2) in
-        Imp (parse_prop left, parse_prop right)
-    | None -> (
-        match find_and s with
-        | Some idx ->
-            let left = String.sub s 0 idx in
-            let right = String.sub s (idx + 1) (String.length s - idx - 1) in
-            And (parse_prop left, parse_prop right)
-        | None ->
-            let s = trim s in
-            if String.length s = 1 && is_var_char s.[0] then Var s
-            else raise (Parse_error ("Invalid variable: " ^ s)))
-
+  let rec parse_raw s =
+    let s = trim s in
+    if s = "" then raise (Parse_error "Empty formula")
+    else if s.[0] = '!' then
+      let rest = String.sub s 1 (String.length s - 1) in
+      Not (parse_raw rest)
+    else
+      let s = strip_outer_parens s in
+      match find_arrow s with
+      | Some idx ->
+          let left = String.sub s 0 idx in
+          let right =
+            String.sub s (idx + 2) (String.length s - idx - 2)
+          in
+          Imp (parse_raw left, parse_raw right)
+      | None -> (
+          match find_and s with
+          | Some idx ->
+              let left = String.sub s 0 idx in
+              let right =
+                String.sub s (idx + 1) (String.length s - idx - 1)
+              in
+              And (parse_raw left, parse_raw right)
+          | None ->
+              let s = trim s in
+              if String.length s = 1 && is_var_char s.[0] then Var s
+              else raise (Parse_error ("Invalid variable: " ^ s))
+        )
+  in
+  simplify (parse_raw s)

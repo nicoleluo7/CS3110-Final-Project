@@ -13,3 +13,16 @@ let rec prop_to_string = function
   | And (p1, p2) -> "(" ^ prop_to_string p1 ^ " & " ^ prop_to_string p2 ^ ")"
   | Imp (p1, p2) -> "(" ^ prop_to_string p1 ^ " -> " ^ prop_to_string p2 ^ ")"
   | Not p -> "!" ^ prop_to_string p
+
+(* [simplify s] handles recursively handles negation for s *)
+let rec simplify s = match s with
+  | Not (Not p) ->
+      (* double-negation elimination *)
+      simplify p
+  | Not p ->
+      Not (simplify p)
+  | And (p1, p2) ->
+      And (simplify p1, simplify p2)
+  | Imp (p1, p2) ->
+      Imp (simplify p1, simplify p2)
+  | Var x -> Var x
