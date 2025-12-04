@@ -91,6 +91,44 @@ let rec apply_modus_ponens st =
       let new_st = List.fold_left add_derived st new_props in
       apply_modus_ponens new_st
 
+(** apply_conjunction_introduction applies conjunction introduction rule to all
+    pairs of props in the premises and derived list and adds any potential new
+    conjunctions to the derived list. From A and B, derives A & B.
+    
+    Note: To avoid excessive nesting, we only combine "simple" formulas
+    (atomic variables, implications, negations) and not conjunctions themselves. *)
+let apply_conjunction_introduction st =
+  let known = st.premises @ st.derived in
+
+  (* Helper: check if a formula is simple (not a conjunction or disjunction) *)
+  let is_simple = function
+    | Var _ | Imp _ | Not _ -> true
+    | And _ | Or _ -> false
+  in
+
+  (* Compute all new propositions that can be inferred *)
+  let new_props =
+    List.fold_left
+      (fun acc p1 ->
+        List.fold_left
+          (fun acc2 p2 ->
+            (* Don't conjoin a proposition with itself *)
+            if p1 = p2 then acc2
+            (* Only combine simple formulas to avoid nested conjunctions *)
+            else if not (is_simple p1 && is_simple p2) then acc2
+            else
+              match conjunction_introduction p1 p2 with
+              | Some p
+                when (not (List.mem p st.premises))
+                     && (not (List.mem p st.derived))
+                     && not (List.mem p acc) -> p :: acc2
+              | _ -> acc2)
+          acc known)
+      [] known
+  in
+  (* Single pass: add all new props and return (no recursion) *)
+  List.fold_left add_derived st new_props
+
 (** judge_goal returns the result of the goal. If the goal is None or doesn't
     exist in premises and derived lists, then it will return false, otherwise,
     it will return true. *)

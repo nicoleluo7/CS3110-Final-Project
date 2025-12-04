@@ -75,6 +75,22 @@ val apply_modus_ponens : t -> t
       originally in st.derived or the consequent of a valid Modus Ponens step.
 *)
 
+val apply_conjunction_introduction : t -> t
+(** [apply_conjunction_introduction st] repeatedly applies Conjunction
+    Introduction to all pairs of formulas in [st.premises] and [st.derived],
+    adding any newly inferred conjunctions to [derived], until no more can be
+    added. From A and B, derives A & B.
+
+    Preconditions:
+    - [st] is a valid proof state.
+    - Premises and derived must be finite.
+
+    Postconditions:
+    - It returns a state [st'] where [st'.derived] contains all possible
+      conjunctions that can be formed from pairs of distinct formulas in
+      st.premises and st.derived.
+*)
+
 val judge_goal : t -> bool
 (** [judge_goal st] is [true] iff the goal of [st] is present among its premises
     or derived formulas; otherwise [false].

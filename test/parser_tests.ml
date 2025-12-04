@@ -35,6 +35,16 @@ let ast_tests =
              ~printer:(fun x -> x)
              "(!A & (B -> C))"
              (prop_to_string (And (Not (Var "A"), Imp (Var "B", Var "C")))) );
+         ( "prop_to_string or" >:: fun _ ->
+           assert_equal
+             ~printer:(fun x -> x)
+             "(A | B)"
+             (prop_to_string (Or (Var "A", Var "B"))) );
+         ( "prop_to_string or nested" >:: fun _ ->
+           assert_equal
+             ~printer:(fun x -> x)
+             "((A | B) & C)"
+             (prop_to_string (And (Or (Var "A", Var "B"), Var "C"))) );
        ]
 
 (* ========== Parser Tests ========== *)
@@ -72,6 +82,36 @@ let parser_tests =
            assert_equal ~printer:prop_to_string
              (Not (And (Var "A", Var "B")))
              (parse_prop "!(A & B)") );
+         ( "parse simple disjunction" >:: fun _ ->
+           assert_equal ~printer:prop_to_string
+             (Or (Var "A", Var "B"))
+             (parse_prop "A | B") );
+         ( "parse disjunction precedence with and" >:: fun _ ->
+           assert_equal ~printer:prop_to_string
+             (And (Var "A", Or (Var "B", Var "C")))
+             (parse_prop "A & B | C") );
+         ( "parse disjunction precedence with implication" >:: fun _ ->
+           assert_equal ~printer:prop_to_string
+             (Imp (Or (Var "A", Var "B"), Var "C"))
+             (parse_prop "(A | B) -> C") );
+         ( "parse disjunction with parentheses" >:: fun _ ->
+           assert_equal ~printer:prop_to_string
+             (And (Or (Var "A", Var "B"), Var "C"))
+             (parse_prop "(A | B) & C") );
+         ( "parse negation of disjunction" >:: fun _ ->
+           assert_equal ~printer:prop_to_string
+             (Not (Or (Var "A", Var "B")))
+             (parse_prop "!(A | B)") );
+         ( "parse nested disjunction" >:: fun _ ->
+           assert_equal ~printer:prop_to_string
+             (Or (Var "A", Or (Var "B", Var "C")))
+             (parse_prop "A | B | C") );
+         ( "parse complex with disjunction" >:: fun _ ->
+           assert_equal ~printer:prop_to_string
+             (Imp (Var "A", Or (Var "B", Var "C")))
+             (parse_prop "A -> B | C") );
+         ( "reject incomplete or" >:: fun _ ->
+           assert_parse_error "incomplete or" "A |" );
          ("reject lowercase var" >:: fun _ -> assert_parse_error "lowercase" "a");
          ("reject empty" >:: fun _ -> assert_parse_error "empty" "");
          ( "reject invalid variable" >:: fun _ ->
@@ -154,6 +194,31 @@ let rule_tests =
                | None -> "None")
              (Some (And (Var "B", Var "C")))
              (modus_ponens (Var "A") (Imp (Var "A", And (Var "B", Var "C")))) );
+         ( "conjunction_introduction simple" >:: fun _ ->
+           assert_equal
+             ~printer:(function
+               | Some p -> prop_to_string p
+               | None -> "None")
+             (Some (And (Var "A", Var "B")))
+             (conjunction_introduction (Var "A") (Var "B")) );
+         ( "conjunction_introduction complex" >:: fun _ ->
+           assert_equal
+             ~printer:(function
+               | Some p -> prop_to_string p
+               | None -> "None")
+             (Some (And (Var "A", Imp (Var "B", Var "C"))))
+             (conjunction_introduction (Var "A") (Imp (Var "B", Var "C"))) );
+         ( "conjunction_introduction nested" >:: fun _ ->
+           assert_equal
+             ~printer:(function
+               | Some p -> prop_to_string p
+               | None -> "None")
+             (Some (And (And (Var "A", Var "B"), Var "C")))
+             (conjunction_introduction (And (Var "A", Var "B")) (Var "C")) );
+         ( "conjunction_introduction always succeeds" >:: fun _ ->
+           match conjunction_introduction (Var "A") (Var "B") with
+           | Some _ -> ()
+           | None -> assert_failure "Conjunction introduction should always succeed" );
        ]
 
 (* ========== Sequent Tests ========== *)
@@ -273,6 +338,65 @@ let sequent_tests =
                assert_equal (Var "A") a;
                assert_equal (Imp (Var "A", And (Var "B", Var "C"))) imp
            | None -> assert_failure "Should find derivation" );
+         ( "apply_conjunction_introduction simple" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s -> add_premise s (Var "B")
+           in
+           let result = apply_conjunction_introduction st in
+           assert_bool "Should derive A & B"
+             (List.mem (And (Var "A", Var "B")) result.derived) );
+         ( "apply_conjunction_introduction multiple pairs" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Var "B") |> fun s -> add_premise s (Var "C")
+           in
+           let result = apply_conjunction_introduction st in
+           assert_bool "Should derive A & B"
+             (List.mem (And (Var "A", Var "B")) result.derived);
+           assert_bool "Should derive A & C"
+             (List.mem (And (Var "A", Var "C")) result.derived);
+           assert_bool "Should derive B & C"
+             (List.mem (And (Var "B", Var "C")) result.derived) );
+         ( "apply_conjunction_introduction no self-conjunction" >:: fun _ ->
+           let st = add_premise empty (Var "A") in
+           let result = apply_conjunction_introduction st in
+           (* Should not derive A & A since we skip when p1 = p2 *)
+           assert_bool "Should not derive A & A"
+             (not (List.mem (And (Var "A", Var "A")) result.derived)) );
+         ( "apply_conjunction_introduction with derived props" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             apply_modus_ponens s
+           in
+           (* Now we have A, A -> B in premises, and B in derived *)
+           let result = apply_conjunction_introduction st in
+           assert_bool "Should derive A & B from premise and derived"
+             (List.mem (And (Var "A", Var "B")) result.derived);
+           assert_bool "Should derive A & (A -> B) from two premises"
+             (List.mem (And (Var "A", Imp (Var "A", Var "B"))) result.derived);
+           assert_bool "Should derive (A -> B) & B"
+             (List.mem (And (Imp (Var "A", Var "B"), Var "B")) result.derived) );
+         ( "apply_conjunction_introduction generates conjunctions" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s -> add_premise s (Var "B")
+           in
+           let result = apply_conjunction_introduction st in
+           (* Should have A & B in derived *)
+           assert_bool "Should derive A & B"
+             (List.exists
+                (function
+                  | And (Var "A", Var "B") -> true
+                  | _ -> false)
+                result.derived) );
+         ( "apply_conjunction_introduction no new derivations when none possible" >:: fun _ ->
+           let st = add_premise empty (Var "A") in
+           let result = apply_conjunction_introduction st in
+           assert_equal [] result.derived );
        ]
 
 (* ========== Simplify Tests ========== *)
@@ -314,7 +438,6 @@ let suite =
          rule_tests;
          sequent_tests;
          simplify_tests;
-         rule_tests;
        ]
 
 let () = run_test_tt_main suite

@@ -3,6 +3,7 @@
 type prop =
   | Var of string
   | And of prop * prop
+  | Or of prop * prop
   | Imp of prop * prop
   | Not of prop
 
@@ -11,7 +12,7 @@ val prop_to_string : prop -> string
 
     Preconditions:
     - It takes in [p], which is a well-formed propositional formula built from
-      constructors Var, And, Imp, and Not.
+      constructors Var, And, Or, Imp, and Not.
 
     Postconditions:
     - It returns a valid text representation of [p] of string type. *)
@@ -21,7 +22,7 @@ val simplify : prop -> prop
 
     Preconditions:
     - It takes in [p], which is a well-formed propositional formula built from
-      constructors Var, And, Imp, and Not.
+      constructors Var, And, Or, Imp, and Not.
 
     Postconditions:
     - It returns a formula that is logically equivalent to [p]. All occurrences

@@ -64,6 +64,8 @@ let find_arrow s =
 
 let find_and s = find_top_level (fun i -> s.[i] = '&') s
 
+let find_or s = find_top_level (fun i -> s.[i] = '|') s
+
 let is_var_char = function
   | 'A' .. 'Z' -> true
   | _ -> false
@@ -90,9 +92,19 @@ let rec parse_prop s =
               let left = String.sub s 0 idx in
               let right = String.sub s (idx + 1) (String.length s - idx - 1) in
               And (parse_raw left, parse_raw right)
-          | None ->
-              let s = trim s in
-              if String.length s = 1 && is_var_char s.[0] then Var s
-              else raise (Parse_error ("Invalid variable: " ^ s)))
+          | None -> (
+              match find_or s with
+              | Some idx ->
+                  let left = String.sub s 0 idx in
+                  let right =
+                    String.sub s (idx + 1) (String.length s - idx - 1)
+                  in
+                  Or (parse_raw left, parse_raw right)
+              | None ->
+                  let s = trim s in
+                  if String.length s = 1 && is_var_char s.[0] then Var s
+                  else raise (Parse_error ("Invalid variable: " ^ s))
+            )
+        )
   in
   simplify (parse_raw s)

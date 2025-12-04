@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>ast.ml &mdash; Coverage report</title>
+    <meta name="description" content="100.00% coverage in lib/ast.ml">
+    <link rel="stylesheet" href="../coverage.css"/>
+    <script src="../highlight.pack.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </head>
+  <body>
+    <div id="header">
+      <h1>
+        <a href="../index.html">
+          <span class="dirname">lib/</span>ast.ml
+        </a>
+      </h1>
+      <h2>100.00%</h2>
+    </div>
+    <div id="navbar">
+    </div>
+    <div id="report">
+      <div id="lines-layer">
+        <pre>
+<a id="L1"></a><span > </span>
+<a id="L2"></a><span > </span>
+<a id="L3"></a><span > </span>
+<a id="L4"></a><span > </span>
+<a id="L5"></a><span > </span>
+<a id="L6"></a><span > </span>
+<a id="L7"></a><span > </span>
+<a id="L8"></a><span > </span>
+<a id="L9"></a><span > </span>
+<a id="L10"></a><span > </span>
+<a id="L11"></a><span > </span>
+<a id="L12"></a><span > </span>
+<a id="L13"></a><span class="visited"> </span>
+<a id="L14"></a><span class="visited"> </span>
+<a id="L15"></a><span class="visited"> </span>
+<a id="L16"></a><span class="visited"> </span>
+<a id="L17"></a><span class="visited"> </span>
+<a id="L18"></a><span > </span>
+<a id="L19"></a><span > </span>
+<a id="L20"></a><span class="visited"> </span>
+<a id="L21"></a><span class="visited"> </span>
+<a id="L22"></a><span > </span>
+<a id="L23"></a><span > </span>
+<a id="L24"></a><span class="visited"> </span>
+<a id="L25"></a><span class="visited"> </span>
+<a id="L26"></a><span class="visited"> </span>
+<a id="L27"></a><span class="visited"> </span>
+<a id="L28"></a><span class="visited"> </span>
+<a id="L29"></a><span class="visited"> </span>
+<a id="L30"></a><span class="visited"> </span>
+<a id="L31"></a><span class="visited"> </span>
+<a id="L32"></a><span class="visited"> </span>
+</pre>
+      </div>
+      <div id="text-layer">
+        <pre id="line-numbers">
+<a href="#L1"> 1</a>
+<a href="#L2"> 2</a>
+<a href="#L3"> 3</a>
+<a href="#L4"> 4</a>
+<a href="#L5"> 5</a>
+<a href="#L6"> 6</a>
+<a href="#L7"> 7</a>
+<a href="#L8"> 8</a>
+<a href="#L9"> 9</a>
+<a href="#L10">10</a>
+<a href="#L11">11</a>
+<a href="#L12">12</a>
+<a href="#L13">13</a>
+<a href="#L14">14</a>
+<a href="#L15">15</a>
+<a href="#L16">16</a>
+<a href="#L17">17</a>
+<a href="#L18">18</a>
+<a href="#L19">19</a>
+<a href="#L20">20</a>
+<a href="#L21">21</a>
+<a href="#L22">22</a>
+<a href="#L23">23</a>
+<a href="#L24">24</a>
+<a href="#L25">25</a>
+<a href="#L26">26</a>
+<a href="#L27">27</a>
+<a href="#L28">28</a>
+<a href="#L29">29</a>
+<a href="#L30">30</a>
+<a href="#L31">31</a>
+<a href="#L32">32</a>
+</pre>
+<pre><code class="ocaml">(* Abstract syntax tree (AST) for propositional logic formulas. This is the core
+   data type that represents formulas internally. *)
+type prop =
+  | Var of string (* A single propositional variable, e.g. "A" *)
+  | And of prop * prop (* Conjunction: p &amp; q *)
+  | Or of prop * prop (* Disjunction: p | q *)
+  | Imp of prop * prop (* Implication: p -&gt; q *)
+  | Not of prop (* Negation: !p *)
+
+(* Convert a prop back into a readable string. Used for printing formulas in the
+   REPL and later in the proof interface. *)
+let rec prop_to_string = function
+  | <span data-count="348">V</span>ar p -&gt; p
+  | <span data-count="64">A</span>nd (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="64">g</span> p1 ^ " &amp; " ^ prop_to_strin<span data-count="64">g</span> p2 ^ ")"
+  | <span data-count="36">O</span>r (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="36">g</span> p1 ^ " | " ^ prop_to_strin<span data-count="36">g</span> p2 ^ ")"
+  | <span data-count="52">I</span>mp (p1, p2) -&gt; "(" ^ prop_to_strin<span data-count="52">g</span> p1 ^ " -&gt; " ^ prop_to_strin<span data-count="52">g</span> p2 ^ ")"
+  | <span data-count="28">N</span>ot p -&gt; "!" ^ prop_to_strin<span data-count="28">g</span> p
+
+(* [simplify s] handles recursively handles negation for s *)
+let rec simplify s = <span data-count="176">m</span>atch s with
+  | <span data-count="22">N</span>ot (Not p) -&gt;
+      (* double-negation elimination *)
+      simplify p
+  | <span data-count="12">N</span>ot p -&gt;
+      Not (simplif<span data-count="12">y</span> p)
+  | <span data-count="18">A</span>nd (p1, p2) -&gt;
+      And (simplif<span data-count="18">y</span> p1, simplif<span data-count="18">y</span> p2)
+  | <span data-count="16">O</span>r (p1, p2) -&gt;
+      Or (simplif<span data-count="16">y</span> p1, simplif<span data-count="16">y</span> p2)
+  | <span data-count="14">I</span>mp (p1, p2) -&gt;
+      Imp (simplif<span data-count="14">y</span> p1, simplif<span data-count="14">y</span> p2)
+  | <span data-count="94">V</span>ar x -&gt; Var x
+</code></pre>
+      </div>
+    </div>
+    <script src="../coverage.js"></script>
+  </body>
+</html>

@@ -16,3 +16,7 @@ let modus_tollens p1 p2 =
   | Not b1, Imp (a, b2) when b1 = b2 -> Some (Not a)
   | Imp (a, b2), Not b1 when b1 = b2 -> Some (Not a)
   | _ -> None
+
+(** conjunction_introduction takes in two props A and B and applies conjunction
+    introduction rule to derive A & B. *)
+let conjunction_introduction p1 p2 = Some (And (p1, p2))

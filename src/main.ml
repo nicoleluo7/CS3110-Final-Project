@@ -6,6 +6,7 @@ type command =
   | AddPremise of prop
   | SetGoal of prop
   | Derive
+  | ConjIntro
   | Show
   | Reset
   | Help
@@ -93,6 +94,7 @@ let parse_command line =
     | "load" ->
         if arg = "" then Error "Usage: load <filename>" else Ok (Load arg)
     | "derive" | "d" -> Ok Derive
+    | "conj" | "conjintro" | "ci" -> Ok ConjIntro
     | "show" | "state" | "s" -> Ok Show
     | "reset" | "clear" -> Ok Reset
     | "help" | "h" | "?" -> Ok Help
@@ -113,7 +115,8 @@ let print_shortcuts () =
   print_endline "──────────────────────────────";
   print_endline "  p           premise";
   print_endline "  g           goal";
-  print_endline "  d           derive";
+  print_endline "  d           derive (Modus Ponens)";
+  print_endline "  ci          conj intro";
   print_endline "  s           show";
   print_endline "  h, ?        help";
   print_endline "  q           quit";
@@ -126,6 +129,7 @@ let print_help () =
   print_endline "  premise <formula>   Add a premise";
   print_endline "  goal <formula>      Set the goal";
   print_endline "  derive              Apply Modus Ponens";
+  print_endline "  conj                Apply Conjunction Introduction";
   print_endline "  show                Show current state";
   print_endline "  reset               Clear proof state";
   print_endline "  load <file>         Load premises/goals from script";
@@ -137,7 +141,38 @@ let print_help () =
 (* -------------------------------------------------------------------------- *)
 let apply_and_show st =
   let before = st.derived in
+  (* Apply both Modus Ponens and Conjunction Introduction *)
   let st' = apply_modus_ponens st in
+  let st'' = apply_conjunction_introduction st' in
+  let after = st''.derived in
+
+  (* only show new derivations *)
+  let new_items = List.filter (fun p -> not (List.mem p before)) after in
+
+  List.iter
+    (fun derived ->
+      (* Try Modus Ponens explanation first *)
+      match Sequent.explain_derivation st derived with
+      | Some (a, imp) ->
+          Printf.printf "Derived: %s    (from %s and %s via Modus Ponens)\n"
+            (prop_to_string derived) (prop_to_string a) (prop_to_string imp)
+      | None -> (
+          (* Check if it's a conjunction *)
+          match derived with
+          | And (p1, p2) ->
+              Printf.printf "Derived: %s    (from %s and %s via Conjunction Introduction)\n"
+                (prop_to_string derived) (prop_to_string p1) (prop_to_string p2)
+          | _ -> Printf.printf "Derived: %s\n" (prop_to_string derived)))
+    new_items;
+
+  (* always show full proof state *)
+  print_state st'';
+  st''
+
+(* -------------------------------------------------------------------------- *)
+let apply_conj_and_show st =
+  let before = st.derived in
+  let st' = apply_conjunction_introduction st in
   let after = st'.derived in
 
   (* only show new derivations *)
@@ -145,12 +180,16 @@ let apply_and_show st =
 
   List.iter
     (fun derived ->
-      match Sequent.explain_derivation st derived with
-      | Some (a, imp) ->
-          Printf.printf "Derived: %s    (from %s and %s via Modus Ponens)\n"
-            (prop_to_string derived) (prop_to_string a) (prop_to_string imp)
-      | None -> Printf.printf "Derived: %s\n" (prop_to_string derived))
+      (* Try to explain which two formulas were combined *)
+      (match derived with
+      | And (p1, p2) ->
+          Printf.printf "Derived: %s    (from %s and %s via Conjunction Introduction)\n"
+            (prop_to_string derived) (prop_to_string p1) (prop_to_string p2)
+      | _ -> Printf.printf "Derived: %s\n" (prop_to_string derived)))
     new_items;
+
+  if new_items = [] then
+    print_endline "No new conjunctions could be derived.";
 
   (* always show full proof state *)
   print_state st';
@@ -178,6 +217,9 @@ let rec run_script st lines =
         | Ok Reset -> run_script empty rest
         | Ok Derive ->
             let st' = apply_and_show st in
+            run_script st' rest
+        | Ok ConjIntro ->
+            let st' = apply_conj_and_show st in
             run_script st' rest
         | Ok (AddPremise p) ->
             let st' = add_premise st p |> apply_and_show in
@@ -220,6 +262,9 @@ let rec loop st =
           loop st
       | Ok Derive ->
           let st' = apply_and_show st in
+          loop st'
+      | Ok ConjIntro ->
+          let st' = apply_conj_and_show st in
           loop st'
       (* reject/success message handled in backend *)
       | Ok (AddPremise p) ->

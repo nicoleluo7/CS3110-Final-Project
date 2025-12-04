@@ -3,6 +3,7 @@
 type prop =
   | Var of string (* A single propositional variable, e.g. "A" *)
   | And of prop * prop (* Conjunction: p & q *)
+  | Or of prop * prop (* Disjunction: p | q *)
   | Imp of prop * prop (* Implication: p -> q *)
   | Not of prop (* Negation: !p *)
 
@@ -11,6 +12,7 @@ type prop =
 let rec prop_to_string = function
   | Var p -> p
   | And (p1, p2) -> "(" ^ prop_to_string p1 ^ " & " ^ prop_to_string p2 ^ ")"
+  | Or (p1, p2) -> "(" ^ prop_to_string p1 ^ " | " ^ prop_to_string p2 ^ ")"
   | Imp (p1, p2) -> "(" ^ prop_to_string p1 ^ " -> " ^ prop_to_string p2 ^ ")"
   | Not p -> "!" ^ prop_to_string p
 
@@ -23,6 +25,8 @@ let rec simplify s = match s with
       Not (simplify p)
   | And (p1, p2) ->
       And (simplify p1, simplify p2)
+  | Or (p1, p2) ->
+      Or (simplify p1, simplify p2)
   | Imp (p1, p2) ->
       Imp (simplify p1, simplify p2)
   | Var x -> Var x

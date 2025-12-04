@@ -8,9 +8,11 @@ val parse_prop : string -> prop
 
     Preconditions:
     - [s] is a non-empty string representing a formula using variables,
-      parentheses, '!', '->', and '&'.
+      parentheses, '!', '->', '&', and '|'.
 
     Postconditions:
     - It returns the propositional formula represented by [s], simplified by
       [simplify].
-    - It raises [Parse_error] if [s] is not a valid formula. *)
+    - It raises [Parse_error] if [s] is not a valid formula.
+    
+    Operator precedence (weakest to strongest): ->, &, | *)

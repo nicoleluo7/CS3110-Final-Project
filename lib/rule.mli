@@ -15,4 +15,14 @@ val modus_ponens : prop -> prop -> prop option
 
     - Otherwise, the result is [None]. *)
 
+val conjunction_introduction : prop -> prop -> prop option
+(** [conjunction_introduction p1 p2] applies the Conjunction Introduction
+    inference rule.
+
+    Preconditions:
+    - [p1] and [p2] are well-formed propositional formulas.
+
+    Postconditions:
+    - Returns [Some (And (p1, p2))], deriving [A & B] from [A] and [B]. *)
+
 val modus_tollens : prop -> prop -> prop option
