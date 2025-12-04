@@ -37,8 +37,8 @@ let conjunction_elimination_right p =
     In practice, we need to know what B should be, so this takes both. *)
 let disjunction_introduction_left a b = Some (Or (a, b))
 
-(** disjunction_introduction_right takes in a prop B and derives A | B for any A.
-    In practice, we need to know what A should be, so this takes both. *)
+(** disjunction_introduction_right takes in a prop B and derives A | B for any
+    A. In practice, we need to know what A should be, so this takes both. *)
 let disjunction_introduction_right a b = Some (Or (a, b))
 
 (** disjunction_elimination takes three props: A | B, A -> C, and B -> C, and
@@ -83,8 +83,8 @@ let biconditional_elimination_left p =
   | And (Imp (a, b), Imp (b2, a2)) when a = a2 && b = b2 -> Some (Imp (a, b))
   | _ -> None
 
-(** biconditional_elimination_right takes a biconditional (A -> B) & (B -> A) and
-    derives B -> A. *)
+(** biconditional_elimination_right takes a biconditional (A -> B) & (B -> A)
+    and derives B -> A. *)
 let biconditional_elimination_right p =
   match p with
   | And (Imp (a, b), Imp (b2, a2)) when a = a2 && b = b2 -> Some (Imp (b2, a2))
@@ -100,12 +100,6 @@ let negation_introduction p1 p2 =
 
 (** double_negation_introduction takes A and derives !!A. *)
 let double_negation_introduction p = Some (Not (Not p))
-
-(** double_negation_elimination takes !!A and derives A. *)
-let double_negation_elimination p =
-  match p with
-  | Not (Not a) -> Some a
-  | _ -> None
 
 (** exportation takes (A & B) -> C and derives A -> (B -> C). *)
 let exportation p =

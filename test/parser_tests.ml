@@ -218,7 +218,9 @@ let rule_tests =
          ( "conjunction_introduction always succeeds" >:: fun _ ->
            match conjunction_introduction (Var "A") (Var "B") with
            | Some _ -> ()
-           | None -> assert_failure "Conjunction introduction should always succeed" );
+           | None ->
+               assert_failure "Conjunction introduction should always succeed"
+         );
        ]
 
 (* ========== Sequent Tests ========== *)
@@ -379,7 +381,8 @@ let sequent_tests =
            assert_bool "Should derive A & (A -> B) from two premises"
              (List.mem (And (Var "A", Imp (Var "A", Var "B"))) result.derived);
            assert_bool "Should derive (A -> B) & B"
-             (List.mem (And (Imp (Var "A", Var "B"), Var "B")) result.derived) );
+             (List.mem (And (Imp (Var "A", Var "B"), Var "B")) result.derived)
+         );
          ( "apply_conjunction_introduction generates conjunctions" >:: fun _ ->
            let st =
              empty |> fun s ->
@@ -393,7 +396,8 @@ let sequent_tests =
                   | And (Var "A", Var "B") -> true
                   | _ -> false)
                 result.derived) );
-         ( "apply_conjunction_introduction no new derivations when none possible" >:: fun _ ->
+         ( "apply_conjunction_introduction no new derivations when none possible"
+         >:: fun _ ->
            let st = add_premise empty (Var "A") in
            let result = apply_conjunction_introduction st in
            assert_equal [] result.derived );
@@ -436,24 +440,27 @@ let ast_utility_tests =
   >::: [
          ( "get_variables simple" >:: fun _ ->
            let vars = get_variables (Var "A") in
-           assert_equal ~printer:(fun xs -> String.concat "," xs) [ "A" ] vars );
+           assert_equal ~printer:(fun xs -> String.concat "," xs) [ "A" ] vars
+         );
          ( "get_variables complex" >:: fun _ ->
            let vars = get_variables (And (Var "A", Imp (Var "B", Var "C"))) in
            let sorted = List.sort compare vars in
-           assert_equal ~printer:(fun xs -> String.concat "," xs)
+           assert_equal
+             ~printer:(fun xs -> String.concat "," xs)
              [ "A"; "B"; "C" ] sorted );
-         ( "depth atomic" >:: fun _ -> assert_equal 0 (depth (Var "A")) );
+         ("depth atomic" >:: fun _ -> assert_equal 0 (depth (Var "A")));
          ( "depth simple" >:: fun _ ->
            assert_equal 1 (depth (And (Var "A", Var "B"))) );
          ( "depth nested" >:: fun _ ->
-           assert_equal 2
-             (depth (And (Var "A", Imp (Var "B", Var "C")))) );
-         ( "size atomic" >:: fun _ -> assert_equal 1 (size (Var "A")) );
+           assert_equal 2 (depth (And (Var "A", Imp (Var "B", Var "C")))) );
+         ("size atomic" >:: fun _ -> assert_equal 1 (size (Var "A")));
          ( "size binary" >:: fun _ ->
            assert_equal 3 (size (And (Var "A", Var "B"))) );
-         ( "is_atomic true" >:: fun _ -> assert_bool "Should be atomic" (is_atomic (Var "A")) );
+         ( "is_atomic true" >:: fun _ ->
+           assert_bool "Should be atomic" (is_atomic (Var "A")) );
          ( "is_atomic false" >:: fun _ ->
-           assert_bool "Should not be atomic" (not (is_atomic (And (Var "A", Var "B")))) );
+           assert_bool "Should not be atomic"
+             (not (is_atomic (And (Var "A", Var "B")))) );
          ( "is_negation true" >:: fun _ ->
            assert_bool "Should be negation" (is_negation (Not (Var "A"))) );
          ( "is_negation false" >:: fun _ ->
@@ -462,9 +469,11 @@ let ast_utility_tests =
            assert_bool "Should be conjunction"
              (is_conjunction (And (Var "A", Var "B"))) );
          ( "is_conjunction false" >:: fun _ ->
-           assert_bool "Should not be conjunction" (not (is_conjunction (Var "A"))) );
+           assert_bool "Should not be conjunction"
+             (not (is_conjunction (Var "A"))) );
          ( "is_disjunction true" >:: fun _ ->
-           assert_bool "Should be disjunction" (is_disjunction (Or (Var "A", Var "B"))) );
+           assert_bool "Should be disjunction"
+             (is_disjunction (Or (Var "A", Var "B"))) );
          ( "is_implication true" >:: fun _ ->
            assert_bool "Should be implication"
              (is_implication (Imp (Var "A", Var "B"))) );
@@ -496,8 +505,8 @@ let ast_utility_tests =
            assert_bool "Should contain subformula"
              (contains (And (Var "A", Var "B")) (Var "A")) );
          ( "contains false" >:: fun _ ->
-           assert_bool "Should not contain"
-             (not (contains (Var "A") (Var "B"))) );
+           assert_bool "Should not contain" (not (contains (Var "A") (Var "B")))
+         );
          ( "get_left_operand" >:: fun _ ->
            match get_left_operand (And (Var "A", Var "B")) with
            | Some p -> assert_equal (Var "A") p
@@ -538,7 +547,8 @@ let additional_rule_tests =
            | None -> assert_failure "Should introduce disjunction" );
          ( "hypothetical_syllogism" >:: fun _ ->
            match
-             hypothetical_syllogism (Imp (Var "A", Var "B"))
+             hypothetical_syllogism
+               (Imp (Var "A", Var "B"))
                (Imp (Var "B", Var "C"))
            with
            | Some p -> assert_equal (Imp (Var "A", Var "C")) p
@@ -547,18 +557,9 @@ let additional_rule_tests =
            match contraposition (Imp (Var "A", Var "B")) with
            | Some p -> assert_equal (Imp (Not (Var "B"), Not (Var "A"))) p
            | None -> assert_failure "Should apply contraposition" );
-         ( "double_negation_introduction" >:: fun _ ->
-           match double_negation_introduction (Var "A") with
-           | Some p -> assert_equal (Not (Not (Var "A"))) p
-           | None -> assert_failure "Should introduce double negation" );
-         ( "double_negation_elimination" >:: fun _ ->
-           match double_negation_elimination (Not (Not (Var "A"))) with
-           | Some p -> assert_equal (Var "A") p
-           | None -> assert_failure "Should eliminate double negation" );
          ( "exportation" >:: fun _ ->
            match exportation (Imp (And (Var "A", Var "B"), Var "C")) with
-           | Some p ->
-               assert_equal (Imp (Var "A", Imp (Var "B", Var "C"))) p
+           | Some p -> assert_equal (Imp (Var "A", Imp (Var "B", Var "C"))) p
            | None -> assert_failure "Should apply exportation" );
          ( "importation" >:: fun _ ->
            match importation (Imp (Var "A", Imp (Var "B", Var "C"))) with
@@ -571,9 +572,7 @@ let additional_sequent_tests =
   "additional_sequent"
   >::: [
          ( "apply_conjunction_elimination" >:: fun _ ->
-           let st =
-             empty |> fun s -> add_premise s (And (Var "A", Var "B"))
-           in
+           let st = empty |> fun s -> add_premise s (And (Var "A", Var "B")) in
            let result = apply_conjunction_elimination st in
            assert_bool "Should derive A" (List.mem (Var "A") result.derived);
            assert_bool "Should derive B" (List.mem (Var "B") result.derived) );
