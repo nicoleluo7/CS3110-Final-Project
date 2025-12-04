@@ -21,6 +21,21 @@ let conflicts p q =
   | p1, Not q1 when p1 = q1 -> true
   | _ -> false
 
+(** conjunction_elimination [p] is a helper function that performs conjunction
+    elimination on [p]. If [p] is a formula premise constructed from And (A, B),
+    it derives from A & B and return [A; B], otherwise it returns []. *)
+let conjunction_elimination p =
+  match p with
+  | And (a, b) -> [ a; b ]
+  | _ -> []
+
+(** add_derived adds a prop to the original list. *)
+let rec add_derived t p =
+  if List.mem p t.derived || List.mem p t.premises then t
+  else
+    let t' = { t with derived = p :: t.derived } in
+    (* Conjunction elimination: derive A and B from A & B. *)
+    List.fold_left add_derived t' (conjunction_elimination p)
 
 (** add_premise adds a prop unless it conflicts with an existing premise or
     derived prop. If it conflicts, it prints a message and rejects it. *)
@@ -29,16 +44,14 @@ let add_premise t p =
   match List.find_opt (conflicts p) all_known with
   | Some q ->
       print_endline
-        ("Rejected premise: " ^ prop_to_string p ^ " conflicts with existing: " ^ prop_to_string q ^ ". Sequent not changed.");
+        ("Rejected premise: " ^ prop_to_string p ^ " conflicts with existing: "
+       ^ prop_to_string q ^ ". Sequent not changed.");
       t
   | None ->
-    print_endline ("Added premise: " ^ prop_to_string p);
-      { t with premises = p :: t.premises }
-
-(** add_derived adds a prop to the original list. *)
-let add_derived t p =
-  if List.mem p t.derived || List.mem p t.premises then t
-  else { t with derived = p :: t.derived }
+      print_endline ("Added premise: " ^ prop_to_string p);
+      let t' = { t with premises = p :: t.premises } in
+      (* Conjunction elimination: also add A and B *)
+      List.fold_left add_derived t' (conjunction_elimination p)
 
 (** add_goal takes in two arguments, first is a record of type t and second is a
     valid prop p, then it sets the goal of t to Some p. *)
