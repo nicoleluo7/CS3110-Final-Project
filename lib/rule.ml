@@ -46,4 +46,3 @@ let contraposition p =
   match p with
   | Imp (a, b) -> Some (Imp (Not b, Not a))
   | _ -> None
-

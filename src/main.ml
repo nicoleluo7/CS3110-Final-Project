@@ -345,7 +345,7 @@ let rec loop st =
             Sequent.get_statistics st
           in
           print_endline "──────────────────────────────";
-          print_endline " Proof Statistics:";
+          print_endline " Current Proof Statistics:";
           print_endline "──────────────────────────────";
           Printf.printf "  Premises: %d\n" prem_count;
           Printf.printf "  Derived: %d\n" deriv_count;
