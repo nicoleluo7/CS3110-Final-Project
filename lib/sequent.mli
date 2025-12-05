@@ -201,4 +201,11 @@ val filter_redundant_derived : prop list -> prop list
     derived list, removing duplicates and overly complex formulas. *)
 
 val is_visible_formula : prop -> bool
+(** [is_visible_formula p] returns [true] if the formula [p] should be shown in
+    the user-facing “Derived” section of the proof state. *)
+
 val normalize_conjunction : prop -> prop
+(** [normalize_conjunction p] returns a canonicalized version of the formula
+    [p], recursively sorting the operands of conjunctions and disjunctions based
+    on their string representations. *)
+    
