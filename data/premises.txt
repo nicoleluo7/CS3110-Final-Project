@@ -1,5 +1,4 @@
 premise A
-premise !(!!A)
 premise (A -> B)
 premise (B -> C)
-show
+premise !A

@@ -1,11 +1,7 @@
 open Ast
 open Rule
 
-let inference_rules = [
-  modus_ponens;
-  modus_tollens;
-  hypothetical_syllogism;
-]
+let inference_rules = [ modus_ponens; modus_tollens; hypothetical_syllogism ]
 
 type t = {
   premises : prop list;
@@ -68,8 +64,9 @@ let conjunction_elimination p =
 let rec add_derived t p =
   (* Filter out tautological implications and overly complex formulas *)
   if List.mem p t.derived || List.mem p t.premises then t
-  else if is_tautology_implication p then t  (* Skip tautologies *)
-  else if negation_depth p > 4 then t  (* Skip formulas with too many negations *)
+  else if is_tautology_implication p then t (* Skip tautologies *)
+  else if negation_depth p > 4 then t
+    (* Skip formulas with too many negations *)
   else
     let t' = { t with derived = p :: t.derived } in
     (* Conjunction elimination: derive A and B from A & B. *)
@@ -106,11 +103,14 @@ let apply_modus_ponens st =
     else
       let known = st'.premises @ st'.derived in
       (* Limit the number of formulas we process to prevent explosion *)
-      let known = if List.length known > max_formulas_to_process 
-        then take max_formulas_to_process known else known in
+      let known =
+        if List.length known > max_formulas_to_process then
+          take max_formulas_to_process known
+        else known
+      in
 
-      (* Compute all new propositions that can be inferred in this round using all
-         inference rules (Modus Ponens, Modus Tollens, etc.). *)
+      (* Compute all new propositions that can be inferred in this round using
+         all inference rules (Modus Ponens, Modus Tollens, etc.). *)
       let new_props =
         List.fold_left
           (fun acc p1 ->
@@ -146,36 +146,42 @@ let apply_modus_ponens st =
 (** apply_conjunction_introduction applies conjunction introduction rule to all
     pairs of props in the premises and derived list and adds any potential new
     conjunctions to the derived list. From A and B, derives A & B.
-    
-    Note: To avoid excessive nesting, we only combine "simple" formulas
-    (atomic variables, implications, negations) and not conjunctions themselves. *)
+
+    Note: To avoid excessive nesting, we only combine "simple" formulas (atomic
+    variables, implications, negations) and not conjunctions themselves. *)
 let apply_conjunction_introduction st =
   let known = st.premises @ st.derived in
   (* Filter out tautologies before conjunction intro *)
   let known = List.filter (fun p -> not (is_tautology_implication p)) known in
-  (* Limit the number of formulas we consider to prevent exponential explosion *)
-  let max_formulas = 20 in  (* Reduced from 50 *)
-  let known = if List.length known > max_formulas then take max_formulas known else known in
+  (* Limit the number of formulas we consider to prevent exponential
+     explosion *)
+  let max_formulas = 20 in
+  (* Reduced from 50 *)
+  let known =
+    if List.length known > max_formulas then take max_formulas known else known
+  in
 
   (* Compute all new propositions that can be inferred *)
   let new_props =
     List.fold_left
       (fun acc p1 ->
         (* Limit the number of new formulas we create *)
-        if List.length acc >= 30 then acc  (* Reduced from 100 *)
+        if List.length acc >= 30 then acc (* Reduced from 100 *)
         else
           List.fold_left
             (fun acc2 p2 ->
               (* Don't conjoin a proposition with itself *)
               if p1 = p2 then acc2
-              (* Only combine simple formulas to avoid nested conjunctions *)
+                (* Only combine simple formulas to avoid nested conjunctions *)
               else if not (is_simple p1 && is_simple p2) then acc2
-              (* Skip if either formula is a tautology *)
-              else if is_tautology_implication p1 || is_tautology_implication p2 then acc2
+                (* Skip if either formula is a tautology *)
+              else if is_tautology_implication p1 || is_tautology_implication p2
+              then acc2
               else
                 match conjunction_introduction p1 p2 with
                 | Some p
-                  when (not (contains_tautology p))  (* Filter conjunctions with tautologies *)
+                  when (not (contains_tautology p))
+                       (* Filter conjunctions with tautologies *)
                        && (not (List.mem p st.premises))
                        && (not (List.mem p st.derived))
                        && not (List.mem p acc) -> p :: acc2
@@ -195,9 +201,9 @@ let judge_goal t =
   | Some p ->
       List.exists (( = ) p) t.premises || List.exists (( = ) p) t.derived
 
-(** [normalize_conjunction p] normalizes a conjunction to a canonical form
-    by ordering the operands lexicographically by their string representation.
-    For non-conjunctions, returns the formula unchanged. *)
+(** [normalize_conjunction p] normalizes a conjunction to a canonical form by
+    ordering the operands lexicographically by their string representation. For
+    non-conjunctions, returns the formula unchanged. *)
 let rec normalize_conjunction p =
   match p with
   | And (p1, p2) ->
@@ -216,12 +222,11 @@ let rec normalize_conjunction p =
   | Imp (p1, p2) -> Imp (normalize_conjunction p1, normalize_conjunction p2)
   | Var _ -> p
 
-(** [is_useful_formula p] determines if a formula is worth showing.
-    Filters out overly complex or redundant formulas. Only shows:
+(** [is_useful_formula p] determines if a formula is worth showing. Filters out
+    overly complex or redundant formulas. Only shows:
     - Atomic formulas (B)
     - Simple implications (!B -> !A)
-    - Simple conjunctions of atomic formulas (A & B)
-    Filters out:
+    - Simple conjunctions of atomic formulas (A & B) Filters out:
     - Conjunctions mixing implications with other formulas
     - Double negation implications (!!A -> !!B)
     - Overly complex formulas *)
@@ -230,9 +235,12 @@ let is_useful_formula p =
   | Var _ -> true (* Always show atomic formulas like B *)
   | Not (Var _) -> true (* Show simple negations like !A *)
   | Imp (Var _, Var _) -> true (* Show simple implications like A -> B *)
-  | Imp (Not (Var _), Not (Var _)) -> true (* Show contrapositions like !B -> !A *)
+  | Imp (Not (Var _), Not (Var _)) ->
+      true (* Show contrapositions like !B -> !A *)
   | And (Var _, Var _) -> true (* Show simple conjunctions like A & B *)
-  | And (Imp _, _) -> false (* Filter out (A -> B) & A, (A -> B) & B, (!B -> !A) & (A -> B), etc. *)
+  | And (Imp _, _) ->
+      false
+      (* Filter out (A -> B) & A, (A -> B) & B, (!B -> !A) & (A -> B), etc. *)
   | And (_, Imp _) -> false (* Filter out A & (A -> B), B & (A -> B), etc. *)
   | Imp (Not (Not _), _) -> false (* Filter out !!A -> !!B *)
   | Imp (_, Not (Not _)) -> false (* Filter out !!A -> !!B *)
@@ -240,7 +248,8 @@ let is_useful_formula p =
 
 (** [filter_redundant_derived derived] filters out redundant formulas from the
     derived list. Removes:
-    - Duplicate formulas (normalized, so (A & B) and (B & A) are treated as same)
+    - Duplicate formulas (normalized, so (A & B) and (B & A) are treated as
+      same)
     - Formulas that aren't useful (overly complex, redundant conjunctions)
     - Prioritizes simpler formulas when duplicates exist *)
 let filter_redundant_derived derived =
@@ -314,9 +323,10 @@ let apply_conjunction_elimination st =
       (fun acc p ->
         match conjunction_elimination_left p with
         | Some left ->
-            if not (List.mem left st.premises)
-               && not (List.mem left st.derived)
-               && not (List.mem left acc)
+            if
+              (not (List.mem left st.premises))
+              && (not (List.mem left st.derived))
+              && not (List.mem left acc)
             then left :: acc
             else acc
         | None -> acc)
@@ -327,10 +337,11 @@ let apply_conjunction_elimination st =
       (fun acc p ->
         match conjunction_elimination_right p with
         | Some right ->
-            if not (List.mem right st.premises)
-               && not (List.mem right st.derived)
-               && not (List.mem right acc)
-               && not (List.mem right new_props)
+            if
+              (not (List.mem right st.premises))
+              && (not (List.mem right st.derived))
+              && (not (List.mem right acc))
+              && not (List.mem right new_props)
             then right :: acc
             else acc
         | None -> acc)
@@ -353,11 +364,12 @@ let apply_hypothetical_syllogism st =
               (fun acc2 p2 ->
                 match hypothetical_syllogism p1 p2 with
                 | Some p
-                  when (not (is_tautology_implication p))  (* Filter out tautologies *)
-                       && (negation_depth p <= 4)  (* Limit negation depth *)
+                  when (not (is_tautology_implication p))
+                       (* Filter out tautologies *)
+                       && negation_depth p <= 4 (* Limit negation depth *)
                        && (not (List.mem p st'.premises))
                        && (not (List.mem p st'.derived))
-                       && not (List.mem p acc)
+                       && (not (List.mem p acc))
                        && not (List.mem p acc2) -> p :: acc2
                 | _ -> acc2)
               acc known)
@@ -379,8 +391,8 @@ let apply_contraposition st =
       (fun acc p ->
         match contraposition p with
         | Some p'
-          when (not (is_tautology_implication p'))  (* Filter out tautologies *)
-               && (negation_depth p' <= 4)  (* Limit negation depth *)
+          when (not (is_tautology_implication p')) (* Filter out tautologies *)
+               && negation_depth p' <= 4 (* Limit negation depth *)
                && (not (List.mem p' st.premises))
                && (not (List.mem p' st.derived))
                && not (List.mem p' acc) -> p' :: acc
@@ -389,16 +401,15 @@ let apply_contraposition st =
   in
   List.fold_left add_derived st new_props
 
-(** [get_all_formulas st] returns all formulas (premises and derived) in the state. *)
+(** [get_all_formulas st] returns all formulas (premises and derived) in the
+    state. *)
 let get_all_formulas st = st.premises @ st.derived
 
 (** [count_formulas st] returns the total number of formulas in the state. *)
-let count_formulas st =
-  List.length st.premises + List.length st.derived
+let count_formulas st = List.length st.premises + List.length st.derived
 
 (** [has_formula st p] returns true if [p] appears in premises or derived. *)
-let has_formula st p =
-  List.mem p st.premises || List.mem p st.derived
+let has_formula st p = List.mem p st.premises || List.mem p st.derived
 
 (** [remove_premise st p] removes [p] from premises if it exists. *)
 let remove_premise st p =
@@ -419,15 +430,19 @@ let get_derived st = st.derived
 (** [get_goal st] returns the goal if it exists. *)
 let get_goal st = st.goal
 
-(** [is_empty st] returns true if there are no premises, derived formulas, or goal. *)
-let is_empty st =
-  st.premises = [] && st.derived = [] && st.goal = None
+(** [is_empty st] returns true if there are no premises, derived formulas, or
+    goal. *)
+let is_empty st = st.premises = [] && st.derived = [] && st.goal = None
 
 (** [get_statistics st] returns a summary of the proof state. *)
 let get_statistics st =
   let premise_count = List.length st.premises in
   let derived_count = List.length st.derived in
-  let goal_set = match st.goal with Some _ -> true | None -> false in
+  let goal_set =
+    match st.goal with
+    | Some _ -> true
+    | None -> false
+  in
   let goal_reached = judge_goal st in
   (premise_count, derived_count, goal_set, goal_reached)
 
@@ -448,14 +463,14 @@ let apply_all_rules st =
       let final_formulas = get_all_formulas st11 in
       let final_set = List.sort compare final_formulas in
       (* Terminate if the set of formulas hasn't changed *)
-      if initial_set = final_set then st11
-      else loop st11 (iteration + 1)
+      if initial_set = final_set then st11 else loop st11 (iteration + 1)
   in
   loop st 0
 
 (** [find_derivations st p] attempts to find how [p] could be derived from the
     current state using various rules. Returns a list of possible explanations.
-    Each explanation is (rule_name, prop1, prop2) where prop2 may be dummy for unary rules. *)
+    Each explanation is (rule_name, prop1, prop2) where prop2 may be dummy for
+    unary rules. *)
 let find_derivations st p =
   let known = st.premises @ st.derived in
   let explanations = ref [] in
@@ -488,7 +503,8 @@ let find_derivations st p =
         (fun p2 ->
           match hypothetical_syllogism p1 p2 with
           | Some result when result = p ->
-              explanations := ("Hypothetical Syllogism", p1, p2) :: !explanations
+              explanations :=
+                ("Hypothetical Syllogism", p1, p2) :: !explanations
           | _ -> ())
         known)
     known;
@@ -497,7 +513,9 @@ let find_derivations st p =
     (fun prop ->
       match contraposition prop with
       | Some result when result = p ->
-          explanations := ("Contraposition", prop, Not (Var "")) :: !explanations  (* dummy second arg *)
+          explanations :=
+            ("Contraposition", prop, Not (Var ""))
+            :: !explanations (* dummy second arg *)
       | _ -> ())
     known;
   (* Check Conjunction Introduction *)
@@ -506,21 +524,24 @@ let find_derivations st p =
       List.iter
         (fun p2 ->
           if p = And (p1, p2) || p = And (p2, p1) then
-            explanations := ("Conjunction Introduction", p1, p2) :: !explanations)
+            explanations :=
+              ("Conjunction Introduction", p1, p2) :: !explanations)
         known)
     known;
   (* Check Conjunction Elimination *)
   List.iter
     (fun prop ->
       match prop with
-      | And (a, b) when (a = p || b = p) ->
-          explanations := ("Conjunction Elimination", prop, Not (Var "")) :: !explanations  (* dummy second arg *)
+      | And (a, b) when a = p || b = p ->
+          explanations :=
+            ("Conjunction Elimination", prop, Not (Var ""))
+            :: !explanations (* dummy second arg *)
       | _ -> ())
     known;
   !explanations
 
-(** [explain_derivation_enhanced st p] returns a single explanation for how [p] was derived.
-    Returns (rule_name, prop1, prop2_option) or None. *)
+(** [explain_derivation_enhanced st p] returns a single explanation for how [p]
+    was derived. Returns (rule_name, prop1, prop2_option) or None. *)
 let explain_derivation_enhanced st p =
   match find_derivations st p with
   | (rule_name, prop1, prop2) :: _ -> Some (rule_name, prop1, Some prop2)
@@ -535,12 +556,13 @@ let export_state st =
   lines := "Derived:" :: !lines;
   List.iter (fun p -> lines := ("  " ^ prop_to_string p) :: !lines) st.derived;
   lines :=
-    ( "Goal: "
-    ^ match st.goal with None -> "None" | Some g -> prop_to_string g )
+    ("Goal: "
+    ^
+    match st.goal with
+    | None -> "None"
+    | Some g -> prop_to_string g)
     :: !lines;
-  lines :=
-    ( "Goal Reached: " ^ if judge_goal st then "Yes" else "No" )
-    :: !lines;
+  lines := ("Goal Reached: " ^ if judge_goal st then "Yes" else "No") :: !lines;
   String.concat "\n" (List.rev !lines)
 
 (* Lightweight visibility filter: hide internal junk and avoid duplicates *)

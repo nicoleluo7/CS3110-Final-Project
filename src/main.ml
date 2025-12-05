@@ -383,11 +383,10 @@ let rec loop st =
           loop st'
       | Ok (RemovePremise p) ->
           let st' = Sequent.remove_premise st p in
-          if st'.premises = st.premises then
-            Printf.printf "Premise not found: %s\n" (prop_to_string p)
-          else Printf.printf "Removed premise: %s\n" (prop_to_string p);
-          print_state st';
-          loop st'
+          let st'' = Sequent.clear_derived st' in
+          print_endline ("Removed premise: " ^ prop_to_string p);
+          let st''' = apply_and_show st'' in
+          loop st'''
       | Ok (Load filename) -> (
           if not (Sys.file_exists filename) then (
             Printf.printf "Error: file not found: %s\n" filename;
