@@ -105,9 +105,8 @@ let parse_command line =
     | "quit" | "q" -> Ok Quit
     | "shortcuts" -> Ok Shortcuts
     | "rules" -> Ok Rules
-    | "export" -> (
-        if arg = "" then Error "Usage: export <filename>"
-        else Ok (Export arg))
+    | "export" ->
+        if arg = "" then Error "Usage: export <filename>" else Ok (Export arg)
     | "stats" | "statistics" -> Ok Stats
     | "applyall" | "aa" -> Ok ApplyAll
     | "find" | "findderivations" -> (
@@ -127,7 +126,7 @@ let parse_command line =
 (* -------------------------------------------------------------------------- *)
 let print_banner () =
   print_endline "===========================================";
-  print_endline "       Propositional Logic REPL v1.0";
+  print_endline "       Propositional Logic REPL MS3";
   print_endline "===========================================";
   print_endline "";
   print_endline "About:";
@@ -170,7 +169,8 @@ let print_rules () =
   print_endline "  • Conjunction Elim (L/R): From A & B, derive A (or B)";
   print_endline "";
   print_endline " Advanced Rules:";
-  print_endline "  • Hypothetical Syllogism: From A -> B and B -> C, derive A -> C";
+  print_endline
+    "  • Hypothetical Syllogism: From A -> B and B -> C, derive A -> C";
   print_endline "  • Contraposition:         From A -> B, derive !B -> !A";
   print_endline "";
   print_endline "──────────────────────────────\n"
@@ -188,8 +188,10 @@ let print_help () =
   print_endline " State Management:";
   print_endline "  show                Show current state";
   print_endline "  reset               Clear entire proof state (all data)";
-  print_endline "  clearderived        Clear only derived formulas (keep premises)";
-  print_endline "  cleargoal           Clear only the goal (keep premises/derived)";
+  print_endline
+    "  clearderived        Clear only derived formulas (keep premises)";
+  print_endline
+    "  cleargoal           Clear only the goal (keep premises/derived)";
   print_endline "  remove <formula>    Remove a specific premise";
   print_endline "";
   print_endline " Analysis & Discovery:";
@@ -210,7 +212,8 @@ let print_help () =
 (* -------------------------------------------------------------------------- *)
 let apply_and_show st =
   let before = st.derived in
-  (* Apply basic inference rules: MP, MT, HS, Conj Intro/Elim, and Contraposition *)
+  (* Apply basic inference rules: MP, MT, HS, Conj Intro/Elim, and
+     Contraposition *)
   let st' = apply_modus_ponens st in
   let st'' = apply_conjunction_introduction st' in
   let st''' = Sequent.apply_conjunction_elimination st'' in
@@ -273,8 +276,13 @@ let rec run_script st lines =
         | Ok (Load _) ->
             print_endline "Nested load not supported.";
             run_script st rest
-        | Ok (Export _) | Ok Stats | Ok ApplyAll | Ok (FindDerivations _)
-        | Ok ClearDerived | Ok ClearGoal | Ok (RemovePremise _) ->
+        | Ok (Export _)
+        | Ok Stats
+        | Ok ApplyAll
+        | Ok (FindDerivations _)
+        | Ok ClearDerived
+        | Ok ClearGoal
+        | Ok (RemovePremise _) ->
             (* UI commands ignored in scripts *)
             run_script st rest)
 
@@ -313,8 +321,7 @@ let rec loop st =
       (* reject/success message handled in backend *)
       | Ok (AddPremise p) ->
           let st_after = add_premise st p in
-          if st_after == st then
-            loop st
+          if st_after == st then loop st
           else
             let st' = apply_and_show st_after in
             loop st'
@@ -329,9 +336,9 @@ let rec loop st =
              output_string ch content;
              close_out ch;
              Printf.printf "State exported to %s\n" filename
-           with
-           | Sys_error msg ->
-               Printf.printf "Error: could not write to file %s: %s\n" filename msg);
+           with Sys_error msg ->
+             Printf.printf "Error: could not write to file %s: %s\n" filename
+               msg);
           loop st
       | Ok Stats ->
           let prem_count, deriv_count, goal_set, goal_reached =
@@ -361,8 +368,7 @@ let rec loop st =
             List.iter
               (fun (rule_name, p1, p2) ->
                 Printf.printf "  - %s: from %s and %s\n" rule_name
-                  (prop_to_string p1)
-                  (prop_to_string p2))
+                  (prop_to_string p1) (prop_to_string p2))
               derivations);
           loop st
       | Ok ClearDerived ->
@@ -379,33 +385,31 @@ let rec loop st =
           let st' = Sequent.remove_premise st p in
           if st'.premises = st.premises then
             Printf.printf "Premise not found: %s\n" (prop_to_string p)
-          else
-            Printf.printf "Removed premise: %s\n" (prop_to_string p);
+          else Printf.printf "Removed premise: %s\n" (prop_to_string p);
           print_state st';
           loop st'
-      | Ok (Load filename) ->
+      | Ok (Load filename) -> (
           if not (Sys.file_exists filename) then (
             Printf.printf "Error: file not found: %s\n" filename;
             loop st)
           else
-            (try
-               let ch = open_in filename in
-               let rec read_all acc =
-                 match input_line ch with
-                 | line -> read_all (line :: acc)
-                 | exception End_of_file -> List.rev acc
-               in
-               let lines = read_all [] in
-               close_in ch;
+            try
+              let ch = open_in filename in
+              let rec read_all acc =
+                match input_line ch with
+                | line -> read_all (line :: acc)
+                | exception End_of_file -> List.rev acc
+              in
+              let lines = read_all [] in
+              close_in ch;
 
-               print_endline ("Loading script: " ^ filename);
-               let st' = run_script st lines in
-               print_endline "File loaded!";
-               loop st'
-             with
-             | Sys_error msg ->
-                 Printf.printf "Error: could not read file %s: %s\n" filename msg;
-                 loop st))
+              print_endline ("Loading script: " ^ filename);
+              let st' = run_script st lines in
+              print_endline "File loaded!";
+              loop st'
+            with Sys_error msg ->
+              Printf.printf "Error: could not read file %s: %s\n" filename msg;
+              loop st))
 
 (* -------------------------------------------------------------------------- *)
 let () =
