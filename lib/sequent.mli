@@ -140,6 +140,10 @@ val explain_derivation : t -> prop -> (prop * prop) option
       new_prop, it returns [Some (A, A -> B)].
     - If no such pair exists, it returns [None]. *)
 
+val explain_derivation_enhanced : t -> prop -> (string * prop * prop option) option
+(** [explain_derivation_enhanced st p] returns an explanation for how [p] was derived,
+    checking multiple inference rules. Returns [Some (rule_name, prop1, prop2_opt)] or [None]. *)
+
 val apply_conjunction_elimination : t -> t
 (** [apply_conjunction_elimination st] applies conjunction elimination to all
     conjunctions, deriving their components. *)

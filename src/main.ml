@@ -240,18 +240,35 @@ let apply_and_show st =
 
   List.iter
     (fun derived ->
-      (* Try Modus Ponens explanation first *)
-      match Sequent.explain_derivation st'''' derived with
-      | Some (a, imp) ->
-          Printf.printf "Derived: %s    (from %s and %s via Modus Ponens)\n"
-            (prop_to_string derived) (prop_to_string a) (prop_to_string imp)
-      | None -> (
-          (* Check if it's a conjunction *)
-          match derived with
-          | And (p1, p2) ->
-              Printf.printf "Derived: %s    (from %s and %s via Conjunction Introduction)\n"
-                (prop_to_string derived) (prop_to_string p1) (prop_to_string p2)
-          | _ -> Printf.printf "Derived: %s\n" (prop_to_string derived)))
+      (* Try enhanced explanation that checks all rules *)
+      match Sequent.explain_derivation_enhanced st'''' derived with
+      | Some (rule_name, prop1, Some prop2) ->
+          (* Check if this is a unary rule (dummy second arg) *)
+          (match prop2 with
+          | Not (Var "") when rule_name = "Contraposition" || rule_name = "Conjunction Elimination" ->
+              (* Unary rule *)
+              Printf.printf "Derived: %s    (from %s via %s)\n"
+                (prop_to_string derived) (prop_to_string prop1) rule_name
+          | _ ->
+              (* Binary rule *)
+              Printf.printf "Derived: %s    (from %s and %s via %s)\n"
+                (prop_to_string derived) (prop_to_string prop1) (prop_to_string prop2) rule_name)
+      | Some (rule_name, prop1, None) ->
+          Printf.printf "Derived: %s    (from %s via %s)\n"
+            (prop_to_string derived) (prop_to_string prop1) rule_name
+      | None ->
+          (* Fallback: try old explain_derivation for MP *)
+          (match Sequent.explain_derivation st'''' derived with
+          | Some (a, imp) ->
+              Printf.printf "Derived: %s    (from %s and %s via Modus Ponens)\n"
+                (prop_to_string derived) (prop_to_string a) (prop_to_string imp)
+          | None ->
+              (* Last resort: check if it's a conjunction *)
+              (match derived with
+              | And (p1, p2) ->
+                  Printf.printf "Derived: %s    (from %s and %s via Conjunction Introduction)\n"
+                    (prop_to_string derived) (prop_to_string p1) (prop_to_string p2)
+              | _ -> Printf.printf "Derived: %s\n" (prop_to_string derived))))
     new_items;
 
   (* always show full proof state *)

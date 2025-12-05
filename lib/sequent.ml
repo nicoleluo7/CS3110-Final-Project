@@ -600,7 +600,8 @@ let apply_all_rules st =
   loop st 0
 
 (** [find_derivations st p] attempts to find how [p] could be derived from the
-    current state using various rules. Returns a list of possible explanations. *)
+    current state using various rules. Returns a list of possible explanations.
+    Each explanation is (rule_name, prop1, prop2) where prop2 may be dummy for unary rules. *)
 let find_derivations st p =
   let known = st.premises @ st.derived in
   let explanations = ref [] in
@@ -626,6 +627,25 @@ let find_derivations st p =
           | _ -> ())
         known)
     known;
+  (* Check Hypothetical Syllogism *)
+  List.iter
+    (fun p1 ->
+      List.iter
+        (fun p2 ->
+          match hypothetical_syllogism p1 p2 with
+          | Some result when result = p ->
+              explanations := ("Hypothetical Syllogism", p1, p2) :: !explanations
+          | _ -> ())
+        known)
+    known;
+  (* Check Contraposition *)
+  List.iter
+    (fun prop ->
+      match contraposition prop with
+      | Some result when result = p ->
+          explanations := ("Contraposition", prop, Not (Var "")) :: !explanations  (* dummy second arg *)
+      | _ -> ())
+    known;
   (* Check Conjunction Introduction *)
   List.iter
     (fun p1 ->
@@ -635,7 +655,22 @@ let find_derivations st p =
             explanations := ("Conjunction Introduction", p1, p2) :: !explanations)
         known)
     known;
+  (* Check Conjunction Elimination *)
+  List.iter
+    (fun prop ->
+      match prop with
+      | And (a, b) when (a = p || b = p) ->
+          explanations := ("Conjunction Elimination", prop, Not (Var "")) :: !explanations  (* dummy second arg *)
+      | _ -> ())
+    known;
   !explanations
+
+(** [explain_derivation_enhanced st p] returns a single explanation for how [p] was derived.
+    Returns (rule_name, prop1, prop2_option) or None. *)
+let explain_derivation_enhanced st p =
+  match find_derivations st p with
+  | (rule_name, prop1, prop2) :: _ -> Some (rule_name, prop1, Some prop2)
+  | [] -> None
 
 (** [export_state st] returns a string representation of the state suitable for
     saving to a file. *)
