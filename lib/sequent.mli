@@ -212,3 +212,7 @@ val find_derivations : t -> prop -> (string * prop * prop) list
 
 val export_state : t -> string
 (** [export_state st] returns a string representation of the state. *)
+
+val filter_redundant_derived : prop list -> prop list
+(** [filter_redundant_derived derived] filters out redundant formulas from the
+    derived list, removing duplicates and overly complex formulas. *)

@@ -165,6 +165,74 @@ let judge_goal t =
   | Some p ->
       List.exists (( = ) p) t.premises || List.exists (( = ) p) t.derived
 
+(** [normalize_conjunction p] normalizes a conjunction to a canonical form
+    by ordering the operands lexicographically by their string representation.
+    For non-conjunctions, returns the formula unchanged. *)
+let rec normalize_conjunction p =
+  match p with
+  | And (p1, p2) ->
+      let n1 = normalize_conjunction p1 in
+      let n2 = normalize_conjunction p2 in
+      let s1 = prop_to_string n1 in
+      let s2 = prop_to_string n2 in
+      if s1 <= s2 then And (n1, n2) else And (n2, n1)
+  | Or (p1, p2) ->
+      let n1 = normalize_conjunction p1 in
+      let n2 = normalize_conjunction p2 in
+      let s1 = prop_to_string n1 in
+      let s2 = prop_to_string n2 in
+      if s1 <= s2 then Or (n1, n2) else Or (n2, n1)
+  | Not p1 -> Not (normalize_conjunction p1)
+  | Imp (p1, p2) -> Imp (normalize_conjunction p1, normalize_conjunction p2)
+  | Var _ -> p
+
+(** [is_useful_formula p] determines if a formula is worth showing.
+    Filters out overly complex or redundant formulas. Only shows:
+    - Atomic formulas (B)
+    - Simple implications (!B -> !A)
+    - Simple conjunctions of atomic formulas (A & B)
+    Filters out:
+    - Conjunctions mixing implications with other formulas
+    - Double negation implications (!!A -> !!B)
+    - Overly complex formulas *)
+let is_useful_formula p =
+  match p with
+  | Var _ -> true (* Always show atomic formulas like B *)
+  | Not (Var _) -> true (* Show simple negations like !A *)
+  | Imp (Var _, Var _) -> true (* Show simple implications like A -> B *)
+  | Imp (Not (Var _), Not (Var _)) -> true (* Show contrapositions like !B -> !A *)
+  | And (Var _, Var _) -> true (* Show simple conjunctions like A & B *)
+  | And (Imp _, _) -> false (* Filter out (A -> B) & A, (A -> B) & B, (!B -> !A) & (A -> B), etc. *)
+  | And (_, Imp _) -> false (* Filter out A & (A -> B), B & (A -> B), etc. *)
+  | Imp (Not (Not _), _) -> false (* Filter out !!A -> !!B *)
+  | Imp (_, Not (Not _)) -> false (* Filter out !!A -> !!B *)
+  | _ -> false (* Don't show anything else *)
+
+(** [filter_redundant_derived derived] filters out redundant formulas from the
+    derived list. Removes:
+    - Duplicate formulas (normalized, so (A & B) and (B & A) are treated as same)
+    - Formulas that aren't useful (overly complex, redundant conjunctions)
+    - Prioritizes simpler formulas when duplicates exist *)
+let filter_redundant_derived derived =
+  let normalized = List.map normalize_conjunction derived in
+  let rec remove_duplicates acc = function
+    | [] -> acc
+    | x :: xs ->
+        if List.exists (( = ) x) acc then remove_duplicates acc xs
+        else remove_duplicates (x :: acc) xs
+  in
+  let unique = remove_duplicates [] normalized in
+  (* Filter to only show useful formulas *)
+  let useful = List.filter is_useful_formula unique in
+  (* Sort by complexity (simpler first) and then by string representation *)
+  List.sort
+    (fun p1 p2 ->
+      let d1 = depth p1 in
+      let d2 = depth p2 in
+      if d1 <> d2 then compare d1 d2
+      else compare (prop_to_string p1) (prop_to_string p2))
+    useful
+
 (** print_result prints the contents of the record of type t in a concise way.
 *)
 let print_result t =
@@ -172,7 +240,8 @@ let print_result t =
   print_endline "Premises:";
   List.iter (fun p -> print_endline (" - " ^ prop_to_string p)) t.premises;
   print_endline "Derived:";
-  List.iter (fun p -> print_endline (" - " ^ prop_to_string p)) t.derived;
+  let filtered = filter_redundant_derived t.derived in
+  List.iter (fun p -> print_endline (" - " ^ prop_to_string p)) filtered;
   print_endline
     ("Goal: "
     ^

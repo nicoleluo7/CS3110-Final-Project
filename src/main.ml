@@ -42,9 +42,10 @@ let print_state st =
   (match st.derived with
   | [] -> print_endline "  (none)"
   | _ ->
+      let filtered = Sequent.filter_redundant_derived st.derived in
       List.iter
         (fun p -> Printf.printf "  - %s\n" (prop_to_string p))
-        st.derived);
+        filtered);
 
   print_endline "\nGoal:";
   (match st.goal with
