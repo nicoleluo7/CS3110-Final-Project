@@ -199,3 +199,6 @@ val export_state : t -> string
 val filter_redundant_derived : prop list -> prop list
 (** [filter_redundant_derived derived] filters out redundant formulas from the
     derived list, removing duplicates and overly complex formulas. *)
+
+val is_visible_formula : prop -> bool
+val normalize_conjunction : prop -> prop

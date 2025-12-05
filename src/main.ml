@@ -41,9 +41,7 @@ let print_state st =
   | [] -> print_endline "  (none)"
   | _ ->
       let filtered = Sequent.filter_redundant_derived st.derived in
-      List.iter
-        (fun p -> Printf.printf "  - %s\n" (prop_to_string p))
-        filtered);
+      List.iter (fun p -> Printf.printf "  - %s\n" (prop_to_string p)) filtered);
 
   print_endline "\nGoal:";
   (match st.goal with
@@ -222,38 +220,25 @@ let apply_and_show st =
   (* only show new derivations *)
   let new_items = List.filter (fun p -> not (List.mem p before)) after in
 
+  let visible_new =
+    new_items
+    |> List.map normalize_conjunction
+    |> List.filter is_visible_formula
+  in
+
   List.iter
-    (fun derived ->
-      (* Try enhanced explanation that checks all rules *)
-      match Sequent.explain_derivation_enhanced st'''' derived with
-      | Some (rule_name, prop1, Some prop2) ->
-          (* Check if this is a unary rule (dummy second arg) *)
-          (match prop2 with
-          | Not (Var "") when rule_name = "Contraposition" || rule_name = "Conjunction Elimination" ->
-              (* Unary rule *)
-              Printf.printf "Derived: %s    (from %s via %s)\n"
-                (prop_to_string derived) (prop_to_string prop1) rule_name
-          | _ ->
-              (* Binary rule *)
-              Printf.printf "Derived: %s    (from %s and %s via %s)\n"
-                (prop_to_string derived) (prop_to_string prop1) (prop_to_string prop2) rule_name)
-      | Some (rule_name, prop1, None) ->
-          Printf.printf "Derived: %s    (from %s via %s)\n"
-            (prop_to_string derived) (prop_to_string prop1) rule_name
-      | None ->
-          (* Fallback: try old explain_derivation for MP *)
-          (match Sequent.explain_derivation st'''' derived with
-          | Some (a, imp) ->
-              Printf.printf "Derived: %s    (from %s and %s via Modus Ponens)\n"
-                (prop_to_string derived) (prop_to_string a) (prop_to_string imp)
-          | None ->
-              (* Last resort: check if it's a conjunction *)
-              (match derived with
-              | And (p1, p2) ->
-                  Printf.printf "Derived: %s    (from %s and %s via Conjunction Introduction)\n"
-                    (prop_to_string derived) (prop_to_string p1) (prop_to_string p2)
-              | _ -> Printf.printf "Derived: %s\n" (prop_to_string derived))))
-    new_items;
+    (fun d ->
+      match Sequent.find_derivations st'''' d with
+      | (rule, p1, p2) :: _ ->
+          let parent_str =
+            if p2 = Not (Var "") then Printf.sprintf "%s" (prop_to_string p1)
+            else
+              Printf.sprintf "%s and %s" (prop_to_string p1) (prop_to_string p2)
+          in
+          Printf.printf "Derived: %s   (%s from %s)\n" (prop_to_string d) rule
+            parent_str
+      | [] -> Printf.printf "Derived: %s\n" (prop_to_string d))
+    visible_new;
 
   (* always show full proof state *)
   print_state st'''';

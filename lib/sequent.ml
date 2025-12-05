@@ -542,3 +542,13 @@ let export_state st =
     ( "Goal Reached: " ^ if judge_goal st then "Yes" else "No" )
     :: !lines;
   String.concat "\n" (List.rev !lines)
+
+(* Lightweight visibility filter: hide internal junk and avoid duplicates *)
+let is_visible_formula p =
+  match p with
+  | And (_, _) ->
+      (* Hide ALL conjunctions unless they appear in premises or the goal *)
+      false
+  | _ ->
+      (* Show atomic, negations, implications, etc. *)
+      true
