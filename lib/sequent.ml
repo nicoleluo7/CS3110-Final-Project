@@ -26,6 +26,28 @@ let is_simple = function
   | Var _ | Imp _ | Not _ -> true
   | And _ | Or _ -> false
 
+(* Helper: check if an implication is a tautology (A -> A) *)
+let is_tautology_implication = function
+  | Imp (a, b) when a = b -> true
+  | _ -> false
+
+(* Helper: check if a formula contains a tautology (recursively) *)
+let rec contains_tautology = function
+  | Imp (a, b) when a = b -> true
+  | Imp (a, b) -> contains_tautology a || contains_tautology b
+  | And (a, b) -> contains_tautology a || contains_tautology b
+  | Or (a, b) -> contains_tautology a || contains_tautology b
+  | Not a -> contains_tautology a
+  | Var _ -> false
+
+(* Helper: count negation depth (to avoid excessive nesting) *)
+let rec negation_depth = function
+  | Not p -> 1 + negation_depth p
+  | Imp (a, b) -> max (negation_depth a) (negation_depth b)
+  | And (a, b) -> max (negation_depth a) (negation_depth b)
+  | Or (a, b) -> max (negation_depth a) (negation_depth b)
+  | Var _ -> 0
+
 (* conflicts is a helper function that determines if a premise p conflicts with
    another premise q *)
 let conflicts p q =
@@ -44,7 +66,10 @@ let conjunction_elimination p =
 
 (** add_derived adds a prop to the original list. *)
 let rec add_derived t p =
+  (* Filter out tautological implications and overly complex formulas *)
   if List.mem p t.derived || List.mem p t.premises then t
+  else if is_tautology_implication p then t  (* Skip tautologies *)
+  else if negation_depth p > 4 then t  (* Skip formulas with too many negations *)
   else
     let t' = { t with derived = p :: t.derived } in
     (* Conjunction elimination: derive A and B from A & B. *)
@@ -126,8 +151,10 @@ let apply_modus_ponens st =
     (atomic variables, implications, negations) and not conjunctions themselves. *)
 let apply_conjunction_introduction st =
   let known = st.premises @ st.derived in
+  (* Filter out tautologies before conjunction intro *)
+  let known = List.filter (fun p -> not (is_tautology_implication p)) known in
   (* Limit the number of formulas we consider to prevent exponential explosion *)
-  let max_formulas = 50 in
+  let max_formulas = 20 in  (* Reduced from 50 *)
   let known = if List.length known > max_formulas then take max_formulas known else known in
 
   (* Compute all new propositions that can be inferred *)
@@ -135,7 +162,7 @@ let apply_conjunction_introduction st =
     List.fold_left
       (fun acc p1 ->
         (* Limit the number of new formulas we create *)
-        if List.length acc >= 100 then acc
+        if List.length acc >= 30 then acc  (* Reduced from 100 *)
         else
           List.fold_left
             (fun acc2 p2 ->
@@ -143,10 +170,13 @@ let apply_conjunction_introduction st =
               if p1 = p2 then acc2
               (* Only combine simple formulas to avoid nested conjunctions *)
               else if not (is_simple p1 && is_simple p2) then acc2
+              (* Skip if either formula is a tautology *)
+              else if is_tautology_implication p1 || is_tautology_implication p2 then acc2
               else
                 match conjunction_introduction p1 p2 with
                 | Some p
-                  when (not (List.mem p st.premises))
+                  when (not (contains_tautology p))  (* Filter conjunctions with tautologies *)
+                       && (not (List.mem p st.premises))
                        && (not (List.mem p st.derived))
                        && not (List.mem p acc) -> p :: acc2
                 | _ -> acc2)
@@ -323,7 +353,9 @@ let apply_hypothetical_syllogism st =
               (fun acc2 p2 ->
                 match hypothetical_syllogism p1 p2 with
                 | Some p
-                  when (not (List.mem p st'.premises))
+                  when (not (is_tautology_implication p))  (* Filter out tautologies *)
+                       && (negation_depth p <= 4)  (* Limit negation depth *)
+                       && (not (List.mem p st'.premises))
                        && (not (List.mem p st'.derived))
                        && not (List.mem p acc)
                        && not (List.mem p acc2) -> p :: acc2
@@ -347,7 +379,9 @@ let apply_contraposition st =
       (fun acc p ->
         match contraposition p with
         | Some p'
-          when (not (List.mem p' st.premises))
+          when (not (is_tautology_implication p'))  (* Filter out tautologies *)
+               && (negation_depth p' <= 4)  (* Limit negation depth *)
+               && (not (List.mem p' st.premises))
                && (not (List.mem p' st.derived))
                && not (List.mem p' acc) -> p' :: acc
         | _ -> acc)
