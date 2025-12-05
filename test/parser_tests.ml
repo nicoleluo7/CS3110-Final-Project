@@ -537,6 +537,64 @@ let ast_utility_tests =
            match get_consequent (Imp (Var "A", Var "B")) with
            | Some p -> assert_equal ~printer:prop_to_string (Var "B") p
            | None -> assert_failure "Should have consequent" );
+         ( "get_variables with duplicates" >:: fun _ ->
+           let vars = get_variables (And (Var "A", And (Var "A", Var "B"))) in
+           let sorted = List.sort compare vars in
+           assert_equal ~printer:(fun xs -> String.concat "," xs) [ "A"; "B" ] sorted );
+         ( "get_variables with negation" >:: fun _ ->
+           let vars = get_variables (Not (Var "A")) in
+           assert_equal ~printer:(fun xs -> String.concat "," xs) [ "A" ] vars );
+         ( "depth with negation" >:: fun _ ->
+           assert_equal 2 (depth (Not (Not (Var "A")))) );
+         ( "depth with or" >:: fun _ ->
+           assert_equal 1 (depth (Or (Var "A", Var "B"))) );
+         ( "size with negation" >:: fun _ ->
+           assert_equal 2 (size (Not (Var "A"))) );
+         ( "size complex" >:: fun _ ->
+           (* And(Not(A), B) = 1 (And) + (1 (Not) + 1 (A)) + 1 (B) = 4 *)
+           assert_equal 4 (size (And (Not (Var "A"), Var "B"))) );
+         ( "count_operators with or" >:: fun _ ->
+           let a, o, i, n = count_operators (Or (Var "A", Var "B")) in
+           assert_equal ~printer:int_printer 0 a;
+           assert_equal ~printer:int_printer 1 o;
+           assert_equal ~printer:int_printer 0 i;
+           assert_equal ~printer:int_printer 0 n );
+         ( "count_operators all types" >:: fun _ ->
+           let a, o, i, n = count_operators (And (Or (Var "A", Var "B"), Imp (Var "C", Not (Var "D")))) in
+           assert_equal ~printer:int_printer 1 a;
+           assert_equal ~printer:int_printer 1 o;
+           assert_equal ~printer:int_printer 1 i;
+           assert_equal ~printer:int_printer 1 n );
+         ( "subformulas with implication" >:: fun _ ->
+           let p = Imp (Var "A", Var "B") in
+           let subs = subformulas p in
+           assert_bool "Should contain itself" (List.mem p subs);
+           assert_bool "Should contain A" (List.mem (Var "A") subs);
+           assert_bool "Should contain B" (List.mem (Var "B") subs) );
+         ( "subformulas with or" >:: fun _ ->
+           let p = Or (Var "A", Var "B") in
+           let subs = subformulas p in
+           assert_bool "Should contain itself" (List.mem p subs);
+           assert_bool "Should contain A" (List.mem (Var "A") subs);
+           assert_bool "Should contain B" (List.mem (Var "B") subs) );
+         ( "contains with implication" >:: fun _ ->
+           assert_bool "Should contain" (contains (Imp (Var "A", Var "B")) (Var "A")) );
+         ( "get_left_operand or" >:: fun _ ->
+           match get_left_operand (Or (Var "A", Var "B")) with
+           | Some p -> assert_equal ~printer:prop_to_string (Var "A") p
+           | None -> assert_failure "Should have left operand" );
+         ( "get_right_operand or" >:: fun _ ->
+           match get_right_operand (Or (Var "A", Var "B")) with
+           | Some p -> assert_equal ~printer:prop_to_string (Var "B") p
+           | None -> assert_failure "Should have right operand" );
+         ( "get_left_operand none" >:: fun _ ->
+           match get_left_operand (Var "A") with
+           | Some _ -> assert_failure "Should not have left operand"
+           | None -> () );
+         ( "get_negated_formula none" >:: fun _ ->
+           match get_negated_formula (Var "A") with
+           | Some _ -> assert_failure "Should not be negation"
+           | None -> () );
        ]
 
 (* ========== Additional Rule Tests ========== *)
@@ -654,6 +712,114 @@ let additional_sequent_tests =
            let st = empty |> fun s -> add_premise s (Var "A") in
            let derivs = find_derivations st (Var "B") in
            assert_bool "Should not find derivations" (derivs = []) );
+         ( "apply_conjunction_introduction filters tautologies" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Imp (Var "B", Var "B"))
+           in
+           let result = apply_conjunction_introduction st in
+           assert_bool "Should not create conjunctions with tautologies"
+             (not (List.exists (fun p -> match p with
+               | And (Imp (a, b), _) when a = b -> true
+               | And (_, Imp (a, b)) when a = b -> true
+               | _ -> false) result.derived)) );
+         ( "apply_contraposition filters tautologies" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Imp (Var "A", Var "A")) in
+           let result = apply_contraposition st in
+           assert_bool "Should not derive tautology from tautology"
+             (not (List.exists (fun p -> match p with
+               | Imp (a, b) when a = b -> true
+               | _ -> false) result.derived)) );
+         ( "apply_hypothetical_syllogism filters tautologies" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "A"))
+           in
+           let result = apply_hypothetical_syllogism st in
+           assert_bool "Should not derive tautology"
+             (not (List.mem (Imp (Var "A", Var "A")) result.derived));
+           assert_bool "Should not derive tautology"
+             (not (List.mem (Imp (Var "B", Var "B")) result.derived)) );
+         ( "add_derived filters tautologies" >:: fun _ ->
+           let st = empty in
+           let st' = add_derived st (Imp (Var "A", Var "A")) in
+           assert_bool "Should not add tautology" (List.length st'.derived = 0) );
+         ( "add_derived filters deep negations" >:: fun _ ->
+           let st = empty in
+           let deep = Not (Not (Not (Not (Not (Var "A"))))) in
+           let st' = add_derived st deep in
+           assert_bool "Should not add formula with too many negations" (List.length st'.derived = 0) );
+         ( "apply_all_rules comprehensive" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "C")) |> fun s ->
+             add_premise s (And (Var "D", Var "E"))
+           in
+           let result = apply_all_rules st in
+           assert_bool "Should derive B via MP" (List.mem (Var "B") result.derived);
+           assert_bool "Should derive A -> C via HS" (List.mem (Imp (Var "A", Var "C")) result.derived);
+           assert_bool "Should derive D via Conj Elim" (List.mem (Var "D") result.derived);
+           assert_bool "Should derive E via Conj Elim" (List.mem (Var "E") result.derived);
+           assert_bool "Should derive !C -> !B via Contraposition"
+             (List.mem (Imp (Not (Var "C"), Not (Var "B"))) result.derived) );
+         ( "apply_all_rules no tautologies" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             add_premise s (Imp (Var "B", Var "A"))
+           in
+           let result = apply_all_rules st in
+           let has_tautology = List.exists (fun p -> match p with
+             | Imp (a, b) when a = b -> true
+             | _ -> false) result.derived in
+           assert_bool "Should not have tautologies" (not has_tautology) );
+         ( "explain_derivation_enhanced modus ponens" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             apply_modus_ponens s
+           in
+           match explain_derivation_enhanced st (Var "B") with
+           | Some (rule_name, _, _) ->
+               assert_bool "Should explain as Modus Ponens" (rule_name = "Modus Ponens")
+           | None -> assert_failure "Should find explanation" );
+         ( "explain_derivation_enhanced contraposition" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             apply_contraposition s
+           in
+           match explain_derivation_enhanced st (Imp (Not (Var "B"), Not (Var "A"))) with
+           | Some (rule_name, _, _) ->
+               assert_bool "Should explain as Contraposition" (rule_name = "Contraposition")
+           | None -> assert_failure "Should find explanation" );
+         ( "get_premises" >:: fun _ ->
+           let st = empty |> fun s -> add_premise s (Var "A") |> fun s -> add_premise s (Var "B") in
+           let prems = get_premises st in
+           assert_equal ~printer:int_printer 2 (List.length prems) );
+         ( "get_derived" >:: fun _ ->
+           let st =
+             empty |> fun s ->
+             add_premise s (Var "A") |> fun s ->
+             add_premise s (Imp (Var "A", Var "B")) |> fun s ->
+             apply_modus_ponens s
+           in
+           let derived = get_derived st in
+           assert_bool "Should have derived B" (List.mem (Var "B") derived) );
+         ( "get_goal" >:: fun _ ->
+           let st = empty |> fun s -> add_goal s (Var "A") in
+           match get_goal st with
+           | Some g -> assert_equal ~printer:prop_to_string (Var "A") g
+           | None -> assert_failure "Should have goal" );
+         ( "filter_redundant_derived" >:: fun _ ->
+           let derived = [Var "A"; Var "B"; Var "A"] in
+           let filtered = filter_redundant_derived derived in
+           assert_bool "Should filter duplicates" (List.length filtered <= List.length derived) );
        ]
 
 let suite =

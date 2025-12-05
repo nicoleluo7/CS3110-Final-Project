@@ -129,50 +129,50 @@
 
 (** modus_ponens takes in two prop and applies modus ponens rule to it. *)
 let modus_ponens p1 p2 =
-  <span data-count="183">m</span>atch p2 with
-  | <span data-count="79">I</span>mp (m, n) when m = p1 -&gt; <span data-count="23">S</span>ome n
-  | <span data-count="160">_</span> -&gt; (
+  <span data-count="25630">m</span>atch p2 with
+  | <span data-count="5712">I</span>mp (m, n) when m = p1 -&gt; <span data-count="38">S</span>ome n
+  | <span data-count="25592">_</span> -&gt; (
       match p1 with
-      | <span data-count="77">I</span>mp (m, n) when m = p2 -&gt; <span data-count="22">S</span>ome n
-      | <span data-count="138">_</span> -&gt; None)
+      | <span data-count="5710">I</span>mp (m, n) when m = p2 -&gt; <span data-count="37">S</span>ome n
+      | <span data-count="25555">_</span> -&gt; None)
 
 (** modus_tollens takes in two props and applies Modus Tollens: from ¬B and (A
     -&gt; B), derive ¬A. *)
 let modus_tollens p1 p2 =
-  <span data-count="181">m</span>atch (p1, p2) with
+  <span data-count="25628">m</span>atch (p1, p2) with
   | <span data-count="1">N</span>ot b1, Imp (a, b2) when b1 = b2 -&gt; <span data-count="1">S</span>ome (Not a)
   | <span data-count="1">I</span>mp (a, b2), Not b1 when b1 = b2 -&gt; <span data-count="1">S</span>ome (Not a)
-  | <span data-count="179">_</span> -&gt; None
+  | <span data-count="25626">_</span> -&gt; None
 
 (** conjunction_introduction takes in two props A and B and applies conjunction
     introduction rule to derive A &amp; B. *)
-let conjunction_introduction p1 p2 = <span data-count="20">S</span>ome (And (p1, p2))
+let conjunction_introduction p1 p2 = <span data-count="261">S</span>ome (And (p1, p2))
 
 (** conjunction_elimination_left takes in a conjunction A &amp; B and derives A. *)
 let conjunction_elimination_left p =
-  <span data-count="4">m</span>atch p with
-  | <span data-count="2">A</span>nd (a, _) -&gt; Some a
-  | <span data-count="2">_</span> -&gt; None
+  <span data-count="666">m</span>atch p with
+  | <span data-count="564">A</span>nd (a, _) -&gt; Some a
+  | <span data-count="102">_</span> -&gt; None
 
 (** conjunction_elimination_right takes in a conjunction A &amp; B and derives B. *)
 let conjunction_elimination_right p =
-  <span data-count="4">m</span>atch p with
-  | <span data-count="2">A</span>nd (_, b) -&gt; Some b
-  | <span data-count="2">_</span> -&gt; None
+  <span data-count="666">m</span>atch p with
+  | <span data-count="564">A</span>nd (_, b) -&gt; Some b
+  | <span data-count="102">_</span> -&gt; None
 
 (** hypothetical_syllogism takes two implications A -&gt; B and B -&gt; C and derives
     A -&gt; C. *)
 let hypothetical_syllogism p1 p2 =
-  <span data-count="197">m</span>atch (p1, p2) with
-  | <span data-count="51">I</span>mp (a, b1), Imp (b2, c) when b1 = b2 -&gt; <span data-count="6">S</span>ome (Imp (a, c))
-  | <span data-count="45">I</span>mp (b2, c), Imp (a, b1) when b1 = b2 -&gt; <span data-count="5">S</span>ome (Imp (a, c))
-  | <span data-count="186">_</span> -&gt; None
+  <span data-count="91963">m</span>atch (p1, p2) with
+  | <span data-count="2493">I</span>mp (a, b1), Imp (b2, c) when b1 = b2 -&gt; <span data-count="316">S</span>ome (Imp (a, c))
+  | <span data-count="2177">I</span>mp (b2, c), Imp (a, b1) when b1 = b2 -&gt; <span data-count="35">S</span>ome (Imp (a, c))
+  | <span data-count="91612">_</span> -&gt; None
 
 (** contraposition takes an implication A -&gt; B and derives !B -&gt; !A. *)
 let contraposition p =
-  <span data-count="5">m</span>atch p with
-  | <span data-count="3">I</span>mp (a, b) -&gt; Some (Imp (Not b, Not a))
-  | <span data-count="2">_</span> -&gt; None
+  <span data-count="674">m</span>atch p with
+  | <span data-count="83">I</span>mp (a, b) -&gt; Some (Imp (Not b, Not a))
+  | <span data-count="591">_</span> -&gt; None
 
 </code></pre>
       </div>
