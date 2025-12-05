@@ -179,15 +179,8 @@ let print_rules () =
   print_endline "  • Conjunction Elim (L/R): From A & B, derive A (or B)";
   print_endline "";
   print_endline " Advanced Rules:";
-  print_endline "  • Disjunction Intro:      From A, derive A | B";
-  print_endline "  • Disjunction Elim:       From A | B, A -> C, and B -> C, derive C";
   print_endline "  • Hypothetical Syllogism: From A -> B and B -> C, derive A -> C";
   print_endline "  • Contraposition:         From A -> B, derive !B -> !A";
-  print_endline "  • Double Negation Intro:   From A, derive !!A";
-  print_endline "  • Double Negation Elim:    From !!A, derive A";
-  print_endline "  • Biconditional Intro:     From A -> B and B -> A, derive (A->B)&(B->A)";
-  print_endline "  • Biconditional Elim:      Extract components from biconditionals";
-  print_endline "  • Negation Introduction:   From A -> B and A -> !B, derive !A";
   print_endline "";
   print_endline "──────────────────────────────\n"
 

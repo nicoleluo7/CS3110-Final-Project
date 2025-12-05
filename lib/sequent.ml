@@ -308,40 +308,6 @@ let apply_conjunction_elimination st =
   in
   List.fold_left add_derived st (new_props @ new_props2)
 
-(** [apply_disjunction_introduction st] applies disjunction introduction to all
-    formulas, creating disjunctions with other formulas.
-    Note: To avoid excessive nesting, we only combine "simple" formulas
-    (atomic variables, implications, negations) and not disjunctions themselves. *)
-let apply_disjunction_introduction st =
-  let known = st.premises @ st.derived in
-  (* Limit the number of formulas we consider to prevent exponential explosion *)
-  let max_formulas = 50 in
-  let known = if List.length known > max_formulas then take max_formulas known else known in
-  
-  let new_props =
-    List.fold_left
-      (fun acc p1 ->
-        (* Limit the number of new formulas we create *)
-        if List.length acc >= 100 then acc
-        else
-          List.fold_left
-            (fun acc2 p2 ->
-              if p1 = p2 then acc2
-              (* Only combine simple formulas to avoid nested disjunctions *)
-              else if not (is_simple p1 && is_simple p2) then acc2
-              else
-                match disjunction_introduction_left p1 p2 with
-                | Some p
-                  when (not (List.mem p st.premises))
-                       && (not (List.mem p st.derived))
-                       && not (List.mem p acc)
-                       && not (List.mem p acc2) -> p :: acc2
-                | _ -> acc2)
-            acc known)
-      [] known
-  in
-  List.fold_left add_derived st new_props
-
 (** [apply_hypothetical_syllogism st] applies hypothetical syllogism to derive
     new implications from chains of implications. *)
 let apply_hypothetical_syllogism st =
@@ -380,146 +346,6 @@ let apply_contraposition st =
     List.fold_left
       (fun acc p ->
         match contraposition p with
-        | Some p'
-          when (not (List.mem p' st.premises))
-               && (not (List.mem p' st.derived))
-               && not (List.mem p' acc) -> p' :: acc
-        | _ -> acc)
-      [] known
-  in
-  List.fold_left add_derived st new_props
-
-(** [apply_disjunction_elimination st] applies disjunction elimination: from A | B,
-    A -> C, and B -> C, derive C. *)
-let apply_disjunction_elimination st =
-  let known = st.premises @ st.derived in
-  let new_props =
-    List.fold_left
-      (fun acc disj ->
-        match disj with
-        | Or (a, b) ->
-            List.fold_left
-              (fun acc2 imp1 ->
-                List.fold_left
-                  (fun acc3 imp2 ->
-                    match disjunction_elimination disj imp1 imp2 with
-                    | Some p
-                      when (not (List.mem p st.premises))
-                           && (not (List.mem p st.derived))
-                           && not (List.mem p acc)
-                           && not (List.mem p acc2)
-                           && not (List.mem p acc3) -> p :: acc3
-                    | _ -> acc3)
-                  acc2 known)
-              acc known
-        | _ -> acc)
-      [] known
-  in
-  List.fold_left add_derived st new_props
-
-(** [apply_biconditional_introduction st] applies biconditional introduction:
-    from A -> B and B -> A, derive (A -> B) & (B -> A). *)
-let apply_biconditional_introduction st =
-  let known = st.premises @ st.derived in
-  let new_props =
-    List.fold_left
-      (fun acc p1 ->
-        List.fold_left
-          (fun acc2 p2 ->
-            match biconditional_introduction p1 p2 with
-            | Some p
-              when (not (List.mem p st.premises))
-                   && (not (List.mem p st.derived))
-                   && not (List.mem p acc)
-                   && not (List.mem p acc2) -> p :: acc2
-            | _ -> acc2)
-          acc known)
-      [] known
-  in
-  List.fold_left add_derived st new_props
-
-(** [apply_biconditional_elimination st] applies biconditional elimination:
-    from (A -> B) & (B -> A), derive A -> B and B -> A. *)
-let apply_biconditional_elimination st =
-  let known = st.premises @ st.derived in
-  let new_props =
-    List.fold_left
-      (fun acc p ->
-        let left_opt = biconditional_elimination_left p in
-        let right_opt = biconditional_elimination_right p in
-        let left_new =
-          match left_opt with
-          | Some p'
-            when (not (List.mem p' st.premises))
-                 && (not (List.mem p' st.derived))
-                 && not (List.mem p' acc) -> [ p' ]
-          | _ -> []
-        in
-        let right_new =
-          match right_opt with
-          | Some p'
-            when (not (List.mem p' st.premises))
-                 && (not (List.mem p' st.derived))
-                 && not (List.mem p' acc)
-                 && not (List.mem p' left_new) -> [ p' ]
-          | _ -> []
-        in
-        left_new @ right_new @ acc)
-      [] known
-  in
-  List.fold_left add_derived st new_props
-
-(** [apply_negation_introduction st] applies negation introduction:
-    from A -> B and A -> !B, derive !A. *)
-let apply_negation_introduction st =
-  let known = st.premises @ st.derived in
-  let new_props =
-    List.fold_left
-      (fun acc p1 ->
-        List.fold_left
-          (fun acc2 p2 ->
-            match negation_introduction p1 p2 with
-            | Some p
-              when (not (List.mem p st.premises))
-                   && (not (List.mem p st.derived))
-                   && not (List.mem p acc)
-                   && not (List.mem p acc2) -> p :: acc2
-            | _ -> acc2)
-          acc known)
-      [] known
-  in
-  List.fold_left add_derived st new_props
-
-(** [apply_double_negation_introduction st] applies double negation introduction:
-    from A, derive !!A. Only applies to formulas that are not already double
-    negations to prevent infinite nesting (e.g., don't create !!!!A from !!A). *)
-let apply_double_negation_introduction st =
-  let known = st.premises @ st.derived in
-  let new_props =
-    List.fold_left
-      (fun acc p ->
-        (* Only apply to formulas that are not already double negations *)
-        match p with
-        | Not (Not _) -> acc
-        | _ -> (
-            match double_negation_introduction p with
-            | Some p'
-              when (not (List.mem p' st.premises))
-                   && (not (List.mem p' st.derived))
-                   && not (List.mem p' acc) -> p' :: acc
-            | _ -> acc))
-      [] known
-  in
-  List.fold_left add_derived st new_props
-
-(** [apply_double_negation_elimination st] applies double negation elimination:
-    from !!A, derive A. *)
-let apply_double_negation_elimination st =
-  let known = st.premises @ st.derived in
-  let new_props =
-    List.fold_left
-      (fun acc p ->
-        match double_negation_elimination p with
         | Some p'
           when (not (List.mem p' st.premises))
                && (not (List.mem p' st.derived))
@@ -584,13 +410,7 @@ let apply_all_rules st =
       let st2 = apply_conjunction_introduction st1 in
       let st3 = apply_conjunction_elimination st2 in
       let st4 = apply_contraposition st3 in
-      let st5 = apply_disjunction_introduction st4 in
-      let st6 = apply_disjunction_elimination st5 in
-      let st7 = apply_biconditional_introduction st6 in
-      let st8 = apply_biconditional_elimination st7 in
-      let st9 = apply_negation_introduction st8 in
-      let st10 = apply_double_negation_introduction st9 in
-      let st11 = apply_double_negation_elimination st10 in
+      let st11 = apply_hypothetical_syllogism st4 in
       let final_formulas = get_all_formulas st11 in
       let final_set = List.sort compare final_formulas in
       (* Terminate if the set of formulas hasn't changed *)

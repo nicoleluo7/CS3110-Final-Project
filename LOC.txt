@@ -1,21 +1,21 @@
-Lines of Code Measurement
+Lines of Code Measurement (Updated - After Rule Removal)
 
-Total LOC: 2075 lines
+Total Physical Lines: 2335 lines (including blank lines and comments)
+Total Code Lines: 1767 lines (excluding blank lines and comments, per cloc)
 
-- Build artifacts were cleaned using `dune clean` before measurement to exclude generated code in _build/
-- Only OCaml source files (.ml and .mli) were included in the count
-- LOC count represents physical lines of code (non-blank, non-comment lines)
+Breakdown (per cloc):
+- Blank lines: 212
+- Comments: 359
+- Actual code: 1767
 
-File Breakdown:
-- test/parser_tests.ml: 835 lines
-- lib/sequent.ml: 456 lines
-- src/main.ml: 409 lines
-- lib/ast.ml: 137 lines
-- lib/parser.ml: 90 lines
-- lib/rule.ml: 65 lines
-- lib/sequent.mli: 39 lines
-- lib/ast.mli: 24 lines
-- lib/rule.mli: 17 lines
-- lib/parser.mli: 3 lines
-
-All source code files in lib/, src/, and test/ directories are included in this count.
+File Breakdown (raw line counts):
+- test/parser_tests.ml: 709 lines 
+- lib/sequent.ml: 462 lines 
+- src/main.ml: 468 lines
+- lib/ast.ml: 184 lines
+- lib/sequent.mli: 157 lines 
+- lib/parser.ml: 110 lines
+- lib/rule.ml: 61 lines 
+- lib/ast.mli: 76 lines
+- lib/rule.mli: 36 lines
+- lib/parser.mli: 18 lines
