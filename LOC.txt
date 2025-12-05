@@ -1,21 +1,20 @@
-Lines of Code Measurement (Updated - After Rule Removal)
-
-Total Physical Lines: 2335 lines (including blank lines and comments)
-Total Code Lines: 1767 lines (excluding blank lines and comments, per cloc)
+Lines of Code Measurement
+Total Physical Lines: 2488 lines (including blank lines and comments)
+Total Code Lines: 1919 lines (excluding blank lines and comments, per cloc)
 
 Breakdown (per cloc):
-- Blank lines: 212
-- Comments: 359
-- Actual code: 1767
+- Blank lines: 210
+- Comments: 361
+- Actual code: 1919
 
 File Breakdown (raw line counts):
-- test/parser_tests.ml: 709 lines 
-- lib/sequent.ml: 462 lines 
-- src/main.ml: 468 lines
+- test/parser_tests.ml: 838 lines 
+- lib/sequent.ml: 544 lines 
+- src/main.ml: 425 lines
+- lib/sequent.mli: 201 lines
 - lib/ast.ml: 184 lines
-- lib/sequent.mli: 157 lines 
 - lib/parser.ml: 110 lines
-- lib/rule.ml: 61 lines 
 - lib/ast.mli: 76 lines
-- lib/rule.mli: 36 lines
+- lib/rule.ml: 49 lines 
+- lib/rule.mli: 43 lines
 - lib/parser.mli: 18 lines

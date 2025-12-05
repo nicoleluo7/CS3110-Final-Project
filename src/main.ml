@@ -6,8 +6,6 @@ open Sequent
 type command =
   | AddPremise of prop
   | SetGoal of prop
-  | Derive
-  | ConjIntro
   | Show
   | Reset
   | Help
@@ -103,8 +101,6 @@ let parse_command line =
           with Parse_error msg -> Error ("Parse error: " ^ msg))
     | "load" ->
         if arg = "" then Error "Usage: load <filename>" else Ok (Load arg)
-    | "derive" | "d" -> Ok Derive
-    | "conj" | "conjintro" | "ci" -> Ok ConjIntro
     | "show" | "state" | "s" -> Ok Show
     | "reset" | "clear" -> Ok Reset
     | "help" | "h" | "?" -> Ok Help
@@ -147,7 +143,6 @@ let print_banner () =
   print_endline "  premise A";
   print_endline "  premise (A -> B)";
   print_endline "  goal B";
-  print_endline "  derive";
   print_endline "  show";
   print_endline ""
 
@@ -157,8 +152,6 @@ let print_shortcuts () =
   print_endline "──────────────────────────────";
   print_endline "  p           premise";
   print_endline "  g           goal";
-  print_endline "  d           derive (basic rules: MP, MT, HS, Conj Intro/Elim, Contraposition)";
-  print_endline "  ci          conj intro";
   print_endline "  s           show";
   print_endline "  aa          applyall";
   print_endline "  cd          clearderived";
@@ -192,8 +185,6 @@ let print_help () =
   print_endline " Proof Construction:";
   print_endline "  premise <formula>   Add a premise (auto-applies basic rules)";
   print_endline "  goal <formula>      Set the goal (auto-applies basic rules)";
-  print_endline "  derive              Apply basic inference rules (MP, MT, HS, Conj Intro/Elim, Contraposition)";
-  print_endline "  conj                Apply Conjunction Introduction only";
   print_endline "  applyall            Apply ALL inference rules exhaustively";
   print_endline "";
   print_endline " State Management:";
@@ -269,32 +260,6 @@ let apply_and_show st =
   st''''
 
 (* -------------------------------------------------------------------------- *)
-let apply_conj_and_show st =
-  let before = st.derived in
-  let st' = apply_conjunction_introduction st in
-  let after = st'.derived in
-
-  (* only show new derivations *)
-  let new_items = List.filter (fun p -> not (List.mem p before)) after in
-
-  List.iter
-    (fun derived ->
-      (* Try to explain which two formulas were combined *)
-      (match derived with
-      | And (p1, p2) ->
-          Printf.printf "Derived: %s    (from %s and %s via Conjunction Introduction)\n"
-            (prop_to_string derived) (prop_to_string p1) (prop_to_string p2)
-      | _ -> Printf.printf "Derived: %s\n" (prop_to_string derived)))
-    new_items;
-
-  if new_items = [] then
-    print_endline "No new conjunctions could be derived.";
-
-  (* always show full proof state *)
-  print_state st';
-  st'
-
-(* -------------------------------------------------------------------------- *)
 (* Execute commands inside a script file *)
 let rec run_script st lines =
   match lines with
@@ -314,12 +279,6 @@ let rec run_script st lines =
             (* UI commands ignored in scripts *)
             run_script st rest
         | Ok Reset -> run_script empty rest
-        | Ok Derive ->
-            let st' = apply_and_show st in
-            run_script st' rest
-        | Ok ConjIntro ->
-            let st' = apply_conj_and_show st in
-            run_script st' rest
         | Ok (AddPremise p) ->
             let st' = add_premise st p |> apply_and_show in
             run_script st' rest
@@ -366,12 +325,6 @@ let rec loop st =
       | Ok Rules ->
           print_rules ();
           loop st
-      | Ok Derive ->
-          let st' = apply_and_show st in
-          loop st'
-      | Ok ConjIntro ->
-          let st' = apply_conj_and_show st in
-          loop st'
       (* reject/success message handled in backend *)
       | Ok (AddPremise p) ->
           let st' = add_premise st p |> apply_and_show in
