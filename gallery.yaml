@@ -1,6 +1,6 @@
 ---
 # Members of your group.
-group:  
+group:
   - name: Anna Sahakyan
     netid: as4275
   - name: Tyson Yoshikawa
@@ -21,16 +21,17 @@ title: "Interactive Propositional Logic Solver"
 # OK if this is a Cornell Github link, but public gallery viewers won't be able to see it.
 git-repo: "https://github.com/nicoleluo7/CS3110-Final-Project"
 # Replace the URL with your own demo video.
-demo-video-url: "https://youtu.be/L9JOAUd_ZzU"
+demo-video-url: "https://youtu.be/zWNefe7llfs"
 # Write a short, attention-grabbing description of your project.
 desc: >
-  We're building an Interactive Propositional Logic Prover that allows
+  We built an Interactive Propositional Logic Prover that allows
   users to construct and explore proofs through a REPL interface centered
   on automated reasoning and proof state management.
-  
+
   Users can add premises one at a time or load them in batches from a script,
   after which the system automatically applies inference rules to expand the proof
-  state by deriving new consequences.
+  state by deriving new consequences. Users can also update their sequent state, allowing
+  them to remove certain premises and derivations.
 
   The prover maintains both the original and derived premises in its proof state,
   and users can query whether a given goal follows from the accumulated proof state.
