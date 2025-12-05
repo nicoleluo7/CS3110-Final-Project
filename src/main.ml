@@ -233,7 +233,7 @@ let apply_and_show st =
   let st'' = apply_conjunction_introduction st' in
   let st''' = Sequent.apply_conjunction_elimination st'' in
   let st'''' = Sequent.apply_contraposition st''' in
-  let after = st''.derived in
+  let after = st''''.derived in
 
   (* only show new derivations *)
   let new_items = List.filter (fun p -> not (List.mem p before)) after in
@@ -241,7 +241,7 @@ let apply_and_show st =
   List.iter
     (fun derived ->
       (* Try Modus Ponens explanation first *)
-      match Sequent.explain_derivation st derived with
+      match Sequent.explain_derivation st'''' derived with
       | Some (a, imp) ->
           Printf.printf "Derived: %s    (from %s and %s via Modus Ponens)\n"
             (prop_to_string derived) (prop_to_string a) (prop_to_string imp)
