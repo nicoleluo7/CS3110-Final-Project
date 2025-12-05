@@ -327,8 +327,12 @@ let rec loop st =
           loop st
       (* reject/success message handled in backend *)
       | Ok (AddPremise p) ->
-          let st' = add_premise st p |> apply_and_show in
-          loop st'
+          let st_after = add_premise st p in
+          if st_after == st then
+            loop st
+          else
+            let st' = apply_and_show st_after in
+            loop st'
       | Ok (SetGoal p) ->
           print_endline ("Set goal: " ^ prop_to_string p);
           let st' = add_goal st p |> apply_and_show in
